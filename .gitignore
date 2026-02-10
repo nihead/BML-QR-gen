@@ -1,0 +1,40 @@
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Android Studio
+*.apk
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+.gradle/
+build/
+.navigation/
+captures/
+output.json
+
+# Signing files
+*.jks
+*.keystore
+
+# Google Services
+google-services.json
+
+# Log files
+*.log
+
+# Gradle cache
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache

@@ -1,0 +1,212 @@
+package com.paymv.posterminal.ui.screen
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.paymv.posterminal.data.model.PaymentReceptionMode
+import com.paymv.posterminal.ui.component.AdBanner
+import com.paymv.posterminal.ui.component.ConnectionStatus
+import com.paymv.posterminal.ui.theme.Gray
+import com.paymv.posterminal.ui.theme.DarkPrimary
+import com.paymv.posterminal.ui.viewmodel.IdleViewModel
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun IdleScreen(
+    viewModel: IdleViewModel,
+    onNavigateToQR: (String) -> Unit,
+    onNavigateToSettings: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val settings by viewModel.settings.collectAsState()
+    val isConnected by viewModel.isConnected.collectAsState()
+    val scope = rememberCoroutineScope()
+    val activeMode = uiState.activeMode
+    
+    // Navigate to QR screen when payment is detected
+    LaunchedEffect(uiState.pendingPayment) {
+        uiState.pendingPayment?.let { payment ->
+            onNavigateToQR(payment.amount)
+            viewModel.onPaymentNavigated()
+        }
+    }
+    
+    // Show test message
+    if (uiState.showTestMessage) {
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(2000)
+            viewModel.clearTestMessage()
+        }
+        Snackbar(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text("Test payment sent successfully")
+        }
+    }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("PayMV POS Terminal") },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Top Ad Banner (if not pro mode)
+            if (!settings.proMode) {
+                AdBanner(text = "Advertisement Space - Top")
+            }
+            
+            Spacer(modifier = Modifier.weight(0.5f))
+            
+            // Store Logo
+            if (!settings.storeLogo.isNullOrEmpty()) {
+                AsyncImage(
+                    model = settings.storeLogo,
+                    contentDescription = "Store Logo",
+                    modifier = Modifier
+                        .size(120.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Placeholder logo
+                Surface(
+                    modifier = Modifier.size(120.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = settings.storeName.take(2).uppercase(),
+                            style = MaterialTheme.typography.displayMedium,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Store Name
+            Text(
+                text = settings.storeName,
+                style = MaterialTheme.typography.displayMedium,
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Connection Status
+            ConnectionStatus(isConnected = isConnected)
+            
+            // Active payment mode indicator (only shown for Pro users)
+            if (settings.proMode) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = when (activeMode) {
+                                PaymentReceptionMode.POLLING -> Icons.Default.Sync
+                                PaymentReceptionMode.FIREBASE -> Icons.Default.Cloud
+                                PaymentReceptionMode.WEBHOOK -> Icons.Default.Dns
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = DarkPrimary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = when (activeMode) {
+                                PaymentReceptionMode.POLLING -> "Polling Mode"
+                                PaymentReceptionMode.FIREBASE -> "Firebase Mode"
+                                PaymentReceptionMode.WEBHOOK -> "Webhook :${settings.webhookPort}"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = DarkPrimary
+                        )
+                    }
+                }
+            }
+            
+            // Webhook error display
+            if (uiState.webhookError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = uiState.webhookError ?: "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Info Text
+            Text(
+                text = "Waiting for payment request...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Gray,
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            // Test QR Button
+            Button(
+                onClick = { viewModel.generateTestQR() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp)
+                    .height(56.dp)
+            ) {
+                Text("Generate Test QR")
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Bottom Ad Banner (if not pro mode)
+            if (!settings.proMode) {
+                AdBanner(text = "Advertisement Space - Bottom")
+            } else {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}

@@ -1,0 +1,49 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- QR code icon shape centered in the adaptive icon safe zone (24dp inset) -->
+    <group
+        android:translateX="24"
+        android:translateY="24">
+        <!-- Outer square -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M4,4h52v52H4z"/>
+        <!-- Top-left finder -->
+        <path
+            android:fillColor="#1A73E8"
+            android:pathData="M8,8h16v16H8z"/>
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M12,12h8v8h-8z"/>
+        <path
+            android:fillColor="#1A73E8"
+            android:pathData="M14,14h4v4h-4z"/>
+        <!-- Top-right finder -->
+        <path
+            android:fillColor="#1A73E8"
+            android:pathData="M36,8h16v16H36z"/>
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M40,12h8v8h-8z"/>
+        <path
+            android:fillColor="#1A73E8"
+            android:pathData="M42,14h4v4h-4z"/>
+        <!-- Bottom-left finder -->
+        <path
+            android:fillColor="#1A73E8"
+            android:pathData="M8,36h16v16H8z"/>
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M12,40h8v8h-8z"/>
+        <path
+            android:fillColor="#1A73E8"
+            android:pathData="M14,42h4v4h-4z"/>
+        <!-- Center data dots -->
+        <path
+            android:fillColor="#1A73E8"
+            android:pathData="M28,28h4v4h-4zM34,28h4v4h-4zM28,34h4v4h-4zM36,36h4v4h-4zM42,28h4v4h-4zM28,42h4v4h-4z"/>
+    </group>
+</vector>
