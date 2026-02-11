@@ -41,6 +41,11 @@ fun IdleScreen(
     val scope = rememberCoroutineScope()
     val activeMode = uiState.activeMode
     
+    // Clear QR-active flag when IdleScreen enters composition (returning from QR)
+    LaunchedEffect(Unit) {
+        viewModel.onReturnedFromQr()
+    }
+    
     // Navigate to QR screen when payment is detected
     LaunchedEffect(uiState.pendingPayment) {
         uiState.pendingPayment?.let { payment ->

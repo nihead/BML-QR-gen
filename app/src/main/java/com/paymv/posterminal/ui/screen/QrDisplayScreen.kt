@@ -1,6 +1,7 @@
 package com.paymv.posterminal.ui.screen
 
 import android.view.WindowManager
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -8,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,8 +27,10 @@ fun QrDisplayScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val settings by viewModel.settings.collectAsState()
+    val currentAmount by viewModel.currentAmount.collectAsState()
     val timeRemaining by viewModel.timeRemaining.collectAsState()
     val shouldNavigateBack by viewModel.shouldNavigateBack.collectAsState()
+    val isUpdating by viewModel.isUpdating.collectAsState()
     
     // Keep screen awake
     val context = LocalContext.current
@@ -80,17 +84,23 @@ fun QrDisplayScreen(
                     textAlign = TextAlign.Center
                 )
             } else {
-                // QR Code
-                QRCodeView(bitmap = uiState.qrBitmap)
+                // QR Code with fade animation
+                Box(
+                    modifier = Modifier.graphicsLayer(alpha = if (isUpdating) 0.3f else 1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    QRCodeView(bitmap = uiState.qrBitmap)
+                }
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                // Amount
+                // Amount with animation
                 Text(
-                    text = "MVR $amount",
+                    text = "MVR $currentAmount",
                     style = MaterialTheme.typography.displayLarge,
                     color = DarkPrimary,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.graphicsLayer(alpha = if (isUpdating) 0.3f else 1f)
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))

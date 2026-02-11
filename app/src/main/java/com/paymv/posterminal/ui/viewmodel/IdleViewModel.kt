@@ -33,6 +33,7 @@ class IdleViewModel(
     
     private var paymentListenerJob: Job? = null
     private var lastMode: PaymentReceptionMode? = null
+    private var qrScreenActive = false
     
     init {
         // Initialize device ID on first launch
@@ -107,7 +108,7 @@ class IdleViewModel(
         paymentListenerJob = viewModelScope.launch {
             paymentRepository.observePayments(mode, webhookPort)
                 .collect { payment ->
-                    if (payment != null) {
+                    if (payment != null && !qrScreenActive) {
                         _uiState.update { it.copy(pendingPayment = payment) }
                     }
                 }
@@ -115,7 +116,12 @@ class IdleViewModel(
     }
     
     fun onPaymentNavigated() {
+        qrScreenActive = true
         _uiState.update { it.copy(pendingPayment = null) }
+    }
+    
+    fun onReturnedFromQr() {
+        qrScreenActive = false
     }
     
     fun generateTestQR() {
