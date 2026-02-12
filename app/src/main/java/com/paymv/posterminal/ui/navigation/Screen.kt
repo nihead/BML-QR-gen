@@ -6,4 +6,5 @@ sealed class Screen(val route: String) {
         fun createRoute(amount: String) = "qr_display/$amount"
     }
     object Settings : Screen("settings")
+    object Browser : Screen("browser")
 }

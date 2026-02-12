@@ -56,4 +56,20 @@ object ViewModelFactory {
             }
         }
     }
+    
+    fun createBrowserViewModelFactory(
+        paymentRepository: PaymentRepository,
+        settingsRepository: SettingsRepository,
+        networkMonitor: NetworkMonitor
+    ): ViewModelProvider.Factory {
+        return object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(BrowserViewModel::class.java)) {
+                    return BrowserViewModel(paymentRepository, settingsRepository, networkMonitor) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
+            }
+        }
+    }
 }

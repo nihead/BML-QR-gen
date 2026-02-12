@@ -84,6 +84,18 @@ class SettingsViewModel(
         _editableSettings.update { it.copy(showManualQrInput = enabled) }
     }
     
+    fun updateBrowserEnabled(enabled: Boolean) {
+        _editableSettings.update { it.copy(browserEnabled = enabled) }
+    }
+    
+    fun updateBrowserUrl(url: String) {
+        _editableSettings.update { it.copy(browserUrl = url) }
+    }
+    
+    fun updateBrowserAutoReload(enabled: Boolean) {
+        _editableSettings.update { it.copy(browserAutoReload = enabled) }
+    }
+    
     fun updateStoreLogo(logoPath: String?) {
         _editableSettings.update { it.copy(storeLogo = logoPath) }
     }
@@ -184,6 +196,16 @@ class SettingsViewModel(
         
         if (currentSettings.adminPassword.isNotEmpty() && currentSettings.adminPassword.length < 6) {
             errors.add("Password must be at least 6 characters (or leave empty for no protection)")
+        }
+        
+        // Validate browser settings
+        if (currentSettings.browserEnabled) {
+            if (currentSettings.browserUrl.isEmpty()) {
+                errors.add("Browser URL is required when browser mode is enabled")
+            } else if (!currentSettings.browserUrl.startsWith("http://") && 
+                       !currentSettings.browserUrl.startsWith("https://")) {
+                errors.add("Browser URL must start with http:// or https://")
+            }
         }
         
         // Validate webhook port

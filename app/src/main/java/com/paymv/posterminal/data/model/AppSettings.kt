@@ -15,6 +15,10 @@ data class AppSettings(
     val adminPassword: String = "", // Empty = no password protection
     val proMode: Boolean = false,
     val showManualQrInput: Boolean = false, // Show manual amount input on idle screen
+    // Browser settings
+    val browserEnabled: Boolean = false, // Replace idle screen with browser
+    val browserUrl: String = "", // URL to display in browser
+    val browserAutoReload: Boolean = false, // Auto reload browser page periodically
     // Payment reception settings (Pro mode only)
     val paymentReceptionMode: PaymentReceptionMode = PaymentReceptionMode.POLLING,
     val deviceId: String = "",       // Firebase Installation ID (auto-generated)

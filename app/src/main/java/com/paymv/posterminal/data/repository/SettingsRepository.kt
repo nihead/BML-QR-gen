@@ -53,7 +53,11 @@ class SettingsRepository(context: Context) {
         val json = sharedPreferences.getString("app_settings", null)
         return if (json != null) {
             try {
-                gson.fromJson(json, AppSettings::class.java)
+                val loaded = gson.fromJson(json, AppSettings::class.java)
+                // Gson doesn't use Kotlin default parameter values — fields missing
+                // from JSON are set to null via reflection even if typed as non-null.
+                // Rebuild with safe defaults so newly-added fields never cause NPE.
+                sanitizeSettings(loaded)
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading settings, using defaults: ${e.message}")
                 AppSettings()
@@ -61,6 +65,24 @@ class SettingsRepository(context: Context) {
         } else {
             AppSettings() // Default settings
         }
+    }
+    
+    /**
+     * Ensure all non-null String fields have a value.
+     * Gson may leave them as null when deserializing old JSON that predates the field.
+     */
+    @Suppress("SENSELESS_COMPARISON")
+    private fun sanitizeSettings(s: AppSettings): AppSettings {
+        val defaults = AppSettings()
+        return s.copy(
+            storeName      = if (s.storeName      != null) s.storeName      else defaults.storeName,
+            accountName    = if (s.accountName    != null) s.accountName    else defaults.accountName,
+            accountNumber  = if (s.accountNumber  != null) s.accountNumber  else defaults.accountNumber,
+            adminPassword  = if (s.adminPassword  != null) s.adminPassword  else defaults.adminPassword,
+            browserUrl     = if (s.browserUrl     != null) s.browserUrl     else defaults.browserUrl,
+            deviceId       = if (s.deviceId       != null) s.deviceId       else defaults.deviceId,
+            fcmToken       = if (s.fcmToken       != null) s.fcmToken       else defaults.fcmToken
+        )
     }
     
     fun saveSettings(settings: AppSettings) {
