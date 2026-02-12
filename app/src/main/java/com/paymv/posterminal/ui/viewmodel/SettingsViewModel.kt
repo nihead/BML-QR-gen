@@ -80,8 +80,32 @@ class SettingsViewModel(
         _editableSettings.update { it.copy(proMode = enabled) }
     }
     
+    fun updateShowManualQrInput(enabled: Boolean) {
+        _editableSettings.update { it.copy(showManualQrInput = enabled) }
+    }
+    
     fun updateStoreLogo(logoPath: String?) {
         _editableSettings.update { it.copy(storeLogo = logoPath) }
+    }
+    
+    /**
+     * Copy image from content:// URI to app-local storage so it persists across restarts.
+     */
+    fun copyAndSetStoreLogo(context: Context, uri: android.net.Uri) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri) ?: return@launch
+                val logoFile = java.io.File(context.filesDir, "store_logo.png")
+                logoFile.outputStream().use { output ->
+                    inputStream.copyTo(output)
+                }
+                inputStream.close()
+                val localPath = logoFile.absolutePath
+                _editableSettings.update { it.copy(storeLogo = localPath) }
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "Failed to copy store logo: ${e.message}")
+            }
+        }
     }
     
     fun updatePaymentReceptionMode(mode: PaymentReceptionMode) {
@@ -162,24 +186,14 @@ class SettingsViewModel(
             errors.add("Password must be at least 6 characters (or leave empty for no protection)")
         }
         
-        // Validate webhook port if in webhook mode
-        if (currentSettings.proMode && 
-            currentSettings.paymentReceptionMode == PaymentReceptionMode.WEBHOOK &&
-            !settingsRepository.validateWebhookPort(currentSettings.webhookPort)) {
+        // Validate webhook port
+        if (!settingsRepository.validateWebhookPort(currentSettings.webhookPort)) {
             errors.add("Webhook port must be between 1024 and 65535")
         }
         
         if (errors.isNotEmpty()) {
             _uiState.update { it.copy(validationErrors = errors) }
             return
-        }
-        
-        // Handle Firebase subscription changes
-        if (currentSettings.proMode && 
-            currentSettings.paymentReceptionMode == PaymentReceptionMode.FIREBASE) {
-            viewModelScope.launch {
-                settingsRepository.subscribeToDeviceTopic()
-            }
         }
         
         // Save

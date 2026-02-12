@@ -77,7 +77,12 @@ class WebhookPaymentSource(
         private val gson = Gson()
         
         override fun serve(session: IHTTPSession): Response {
-            return when {
+            // Handle CORS preflight
+            if (session.method == Method.OPTIONS) {
+                return newCorsResponse(newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, ""))
+            }
+            
+            val response = when {
                 session.uri == "/payment" && session.method == Method.POST -> handlePayment(session)
                 session.uri == "/health" && session.method == Method.GET -> handleHealth()
                 session.uri == "/" && session.method == Method.GET -> handleInfo()
@@ -87,6 +92,15 @@ class WebhookPaymentSource(
                     """{"error": "Not found"}"""
                 )
             }
+            return newCorsResponse(response)
+        }
+        
+        private fun newCorsResponse(response: Response): Response {
+            response.addHeader("Access-Control-Allow-Origin", "*")
+            response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            response.addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            response.addHeader("Access-Control-Max-Age", "86400")
+            return response
         }
         
         private fun handlePayment(session: IHTTPSession): Response {

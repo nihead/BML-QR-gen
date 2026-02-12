@@ -14,6 +14,7 @@ data class AppSettings(
     val mobileNumber: String? = null, // +960XXXXXXX
     val adminPassword: String = "", // Empty = no password protection
     val proMode: Boolean = false,
+    val showManualQrInput: Boolean = false, // Show manual amount input on idle screen
     // Payment reception settings (Pro mode only)
     val paymentReceptionMode: PaymentReceptionMode = PaymentReceptionMode.POLLING,
     val deviceId: String = "",       // Firebase Installation ID (auto-generated)

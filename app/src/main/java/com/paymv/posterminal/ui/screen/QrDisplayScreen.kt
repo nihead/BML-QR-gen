@@ -53,7 +53,7 @@ fun QrDisplayScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(settings.storeName) },
+                title = { Text("SCAN TO PAY") },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.onBackPressed() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -84,16 +84,6 @@ fun QrDisplayScreen(
                     textAlign = TextAlign.Center
                 )
             } else {
-                // QR Code with fade animation
-                Box(
-                    modifier = Modifier.graphicsLayer(alpha = if (isUpdating) 0.3f else 1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    QRCodeView(bitmap = uiState.qrBitmap)
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
                 // Amount with animation
                 Text(
                     text = "MVR $currentAmount",
@@ -103,7 +93,17 @@ fun QrDisplayScreen(
                     modifier = Modifier.graphicsLayer(alpha = if (isUpdating) 0.3f else 1f)
                 )
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // QR Code with fade animation
+                Box(
+                    modifier = Modifier.graphicsLayer(alpha = if (isUpdating) 0.3f else 1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    QRCodeView(bitmap = uiState.qrBitmap)
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
                 
                 // Account Info
                 Text(

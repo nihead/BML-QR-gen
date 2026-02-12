@@ -54,12 +54,12 @@ fun SettingsScreen(
     var passwordInput by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     
-    // Image picker
+    // Image picker - copies image to local storage to persist across restarts
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            viewModel.updateStoreLogo(it.toString())
+            viewModel.copyAndSetStoreLogo(context, it)
         }
     }
     
@@ -262,6 +262,127 @@ fun SettingsScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
+            // Manual QR Input
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Manual QR Input", style = MaterialTheme.typography.bodyLarge)
+                Switch(
+                    checked = editableSettings.showManualQrInput,
+                    onCheckedChange = { viewModel.updateShowManualQrInput(it) }
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Local Webhook Settings
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Local Webhook Server",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Run a local HTTP server to receive payment requests",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    OutlinedTextField(
+                        value = editableSettings.webhookPort.toString(),
+                        onValueChange = { viewModel.updateWebhookPort(it) },
+                        label = { Text("Webhook Port") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.webhookServerRunning,
+                        supportingText = {
+                            Text("POST /payment on this port to trigger QR display")
+                        }
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Server toggle button
+                    Button(
+                        onClick = { viewModel.toggleWebhookServer() },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = if (uiState.webhookServerRunning) {
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            )
+                        } else {
+                            ButtonDefaults.buttonColors()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (uiState.webhookServerRunning) 
+                                Icons.Default.Stop else Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (uiState.webhookServerRunning) 
+                                "Stop Webhook Server" else "Start Webhook Server"
+                        )
+                    }
+                    
+                    // Server status
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(8.dp),
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            color = if (uiState.webhookServerRunning) 
+                                androidx.compose.ui.graphics.Color(0xFF4CAF50) 
+                            else MaterialTheme.colorScheme.outline
+                        ) {}
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (uiState.webhookServerRunning) 
+                                "Server running on port ${editableSettings.webhookPort}" 
+                            else "Server stopped",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    // Error display
+                    if (uiState.webhookError != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = uiState.webhookError ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "When server is running, send POST requests to http://<device-ip>:${editableSettings.webhookPort}/payment with JSON body {\"amount\": \"25.00\"} to display QR code.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
             // Pro Mode
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -273,248 +394,6 @@ fun SettingsScreen(
                     checked = editableSettings.proMode,
                     onCheckedChange = { viewModel.updateProMode(it) }
                 )
-            }
-            
-            // Payment Reception Mode (Pro only)
-            if (editableSettings.proMode) {
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Payment Reception Mode",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Choose how the terminal receives payment requests",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        // Polling option
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = editableSettings.paymentReceptionMode == PaymentReceptionMode.POLLING,
-                                    onClick = { viewModel.updatePaymentReceptionMode(PaymentReceptionMode.POLLING) },
-                                    role = Role.RadioButton
-                                )
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = editableSettings.paymentReceptionMode == PaymentReceptionMode.POLLING,
-                                onClick = null
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("Polling", style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    "Check server every 2 seconds",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        
-                        // Firebase option
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = editableSettings.paymentReceptionMode == PaymentReceptionMode.FIREBASE,
-                                    onClick = { viewModel.updatePaymentReceptionMode(PaymentReceptionMode.FIREBASE) },
-                                    role = Role.RadioButton
-                                )
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = editableSettings.paymentReceptionMode == PaymentReceptionMode.FIREBASE,
-                                onClick = null
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Icon(Icons.Default.Cloud, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("Firebase Push", style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    "Receive instant push notifications",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        
-                        // Webhook option
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = editableSettings.paymentReceptionMode == PaymentReceptionMode.WEBHOOK,
-                                    onClick = { viewModel.updatePaymentReceptionMode(PaymentReceptionMode.WEBHOOK) },
-                                    role = Role.RadioButton
-                                )
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = editableSettings.paymentReceptionMode == PaymentReceptionMode.WEBHOOK,
-                                onClick = null
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("Local Webhook", style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    "Run HTTP server on this device",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        
-                        // Device ID (for Firebase mode)
-                        if (editableSettings.paymentReceptionMode == PaymentReceptionMode.FIREBASE) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider()
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            Text(
-                                text = "Device ID",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                OutlinedTextField(
-                                    value = editableSettings.deviceId,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    modifier = Modifier.weight(1f),
-                                    textStyle = MaterialTheme.typography.bodySmall,
-                                    singleLine = true
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                IconButton(onClick = { viewModel.copyDeviceIdToClipboard(context) }) {
-                                    Icon(
-                                        Icons.Default.ContentCopy,
-                                        contentDescription = "Copy Device ID"
-                                    )
-                                }
-                            }
-                            if (uiState.deviceIdCopied) {
-                                Text(
-                                    text = "Copied to clipboard!",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Share this Device ID with your backend to send push payment requests to this terminal.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        
-                        // Webhook port (for Webhook mode)
-                        if (editableSettings.paymentReceptionMode == PaymentReceptionMode.WEBHOOK) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider()
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            OutlinedTextField(
-                                value = editableSettings.webhookPort.toString(),
-                                onValueChange = { viewModel.updateWebhookPort(it) },
-                                label = { Text("Webhook Port") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !uiState.webhookServerRunning,
-                                supportingText = {
-                                    Text("POST /payment on this port to trigger QR display")
-                                }
-                            )
-                            
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            // Server toggle button
-                            Button(
-                                onClick = { viewModel.toggleWebhookServer() },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = if (uiState.webhookServerRunning) {
-                                    ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.error
-                                    )
-                                } else {
-                                    ButtonDefaults.buttonColors()
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = if (uiState.webhookServerRunning) 
-                                        Icons.Default.Stop else Icons.Default.PlayArrow,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    if (uiState.webhookServerRunning) 
-                                        "Stop Webhook Server" else "Start Webhook Server"
-                                )
-                            }
-                            
-                            // Server status
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    modifier = Modifier.size(8.dp),
-                                    shape = androidx.compose.foundation.shape.CircleShape,
-                                    color = if (uiState.webhookServerRunning) 
-                                        androidx.compose.ui.graphics.Color(0xFF4CAF50) 
-                                    else MaterialTheme.colorScheme.outline
-                                ) {}
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (uiState.webhookServerRunning) 
-                                        "Server running on port ${editableSettings.webhookPort}" 
-                                    else "Server stopped",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            
-                            // Error display
-                            if (uiState.webhookError != null) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = uiState.webhookError ?: "",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "When server is running, send POST requests to http://<device-ip>:${editableSettings.webhookPort}/payment with JSON body {\"amount\": \"25.00\"} to display QR code.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))

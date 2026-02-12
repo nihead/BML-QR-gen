@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dns
@@ -16,10 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.paymv.posterminal.data.model.PaymentReceptionMode
 import com.paymv.posterminal.ui.component.AdBanner
 import com.paymv.posterminal.ui.component.ConnectionStatus
@@ -95,7 +99,10 @@ fun IdleScreen(
             // Store Logo
             if (!settings.storeLogo.isNullOrEmpty()) {
                 AsyncImage(
-                    model = settings.storeLogo,
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(java.io.File(settings.storeLogo!!))
+                        .crossfade(true)
+                        .build(),
                     contentDescription = "Store Logo",
                     modifier = Modifier
                         .size(120.dp)
@@ -193,15 +200,44 @@ fun IdleScreen(
             
             Spacer(modifier = Modifier.weight(1f))
             
-            // Test QR Button
-            Button(
-                onClick = { viewModel.generateTestQR() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp)
-                    .height(56.dp)
-            ) {
-                Text("Generate Test QR")
+            // Manual QR Input (if enabled in settings)
+            if (settings.showManualQrInput) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = uiState.manualAmount,
+                        onValueChange = { viewModel.updateManualAmount(it) },
+                        label = { Text("Amount (MVR)") },
+                        placeholder = { Text("25.00") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        isError = uiState.amountError != null,
+                        supportingText = {
+                            if (uiState.amountError != null) {
+                                Text(
+                                    text = uiState.amountError ?: "",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    )
+                    Button(
+                        onClick = { viewModel.generateManualQR() },
+                        modifier = Modifier
+                            .width(80.dp)
+                            .height(56.dp),
+                        enabled = uiState.manualAmount.isNotBlank()
+                    ) {
+                        Text("GO")
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))

@@ -124,6 +124,47 @@ class IdleViewModel(
         qrScreenActive = false
     }
     
+    fun updateManualAmount(amount: String) {
+        // Clear error when user types
+        _uiState.update { it.copy(manualAmount = amount, amountError = null) }
+    }
+    
+    fun generateManualQR() {
+        val amount = _uiState.value.manualAmount.trim()
+        
+        // Validate not empty
+        if (amount.isEmpty()) {
+            _uiState.update { it.copy(amountError = "Amount is required") }
+            return
+        }
+        
+        // Validate format (digits with optional decimal)
+        val decimalRegex = Regex("^\\d+(\\.\\d{1,2})?$")
+        if (!decimalRegex.matches(amount)) {
+            _uiState.update { it.copy(amountError = "Invalid format (e.g., 25.00)") }
+            return
+        }
+        
+        // Validate range
+        val amountValue = amount.toDoubleOrNull()
+        if (amountValue == null || amountValue < 0.01 || amountValue > 1000000.0) {
+            _uiState.update { it.copy(amountError = "Amount must be between 0.01 and 1,000,000") }
+            return
+        }
+        
+        // Format to 2 decimal places
+        val formattedAmount = String.format("%.2f", amountValue)
+        
+        // Clear input and generate QR
+        _uiState.update { 
+            it.copy(
+                pendingPayment = PaymentRequest(amount = formattedAmount, timestamp = System.currentTimeMillis().toString()),
+                manualAmount = "",
+                amountError = null
+            ) 
+        }
+    }
+    
     fun generateTestQR() {
         val amount = String.format("%.2f", Random.nextDouble(10.0, 500.0))
         _uiState.update { it.copy(pendingPayment = PaymentRequest(amount = amount, timestamp = System.currentTimeMillis().toString())) }
@@ -146,5 +187,7 @@ data class IdleUiState(
     val pendingPayment: PaymentRequest? = null,
     val showTestMessage: Boolean = false,
     val activeMode: PaymentReceptionMode = PaymentReceptionMode.POLLING,
-    val webhookError: String? = null
+    val webhookError: String? = null,
+    val manualAmount: String = "",
+    val amountError: String? = null
 )
