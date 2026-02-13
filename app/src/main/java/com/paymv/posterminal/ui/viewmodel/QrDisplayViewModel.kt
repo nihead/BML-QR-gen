@@ -60,13 +60,26 @@ class QrDisplayViewModel(
             val settings = settingsRepository.settings.value
             val mode = if (settings.proMode) settings.paymentReceptionMode else PaymentReceptionMode.POLLING
             
-            paymentRepository.observePayments(mode, settings.webhookPort)
-                .collect { payment ->
-                    // Only process if it's a genuinely new payment we haven't handled
-                    if (payment != null && payment.amount != lastProcessedAmount) {
-                        lastProcessedAmount = payment.amount
-                        paymentRepository.clearPayment()
-                        updatePaymentDisplay(payment.amount)
+            // Choose payment flow: prefer manual webhook server if running, 
+            // otherwise use the configured mode
+            val paymentFlow = paymentRepository.observeWebhookPayments()
+                ?: paymentRepository.observePayments(mode, settings.webhookPort)
+            
+            paymentFlow.collect { payment ->
+                    if (payment != null) {
+                        // Check if this is a completion notification
+                        if (payment.completed == true) {
+                            // Payment is completed, navigate back
+                            paymentListenerJob?.cancel()
+                            countdownJob?.cancel()
+                            updateJob?.cancel()
+                            _shouldNavigateBack.value = true
+                        } else if (payment.amount != lastProcessedAmount) {
+                            // Only process if it's a genuinely new payment we haven't handled
+                            lastProcessedAmount = payment.amount
+                            paymentRepository.clearPayment()
+                            updatePaymentDisplay(payment.amount)
+                        }
                     }
                 }
         }

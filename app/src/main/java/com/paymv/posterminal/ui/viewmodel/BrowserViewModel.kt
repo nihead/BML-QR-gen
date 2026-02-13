@@ -85,8 +85,11 @@ class BrowserViewModel(
     
     private fun collectPayments(mode: PaymentReceptionMode, webhookPort: Int) {
         paymentListenerJob = viewModelScope.launch {
-            paymentRepository.observePayments(mode, webhookPort)
-                .collect { payment ->
+            // Prefer manual webhook server if running, otherwise use configured mode
+            val paymentFlow = paymentRepository.observeWebhookPayments()
+                ?: paymentRepository.observePayments(mode, webhookPort)
+            
+            paymentFlow.collect { payment ->
                     if (payment != null && !qrScreenActive) {
                         _uiState.update { it.copy(pendingPayment = payment) }
                     }

@@ -32,10 +32,12 @@ class SettingsViewModel(
             }
         }
         // Check if webhook server is already running
+        val isWebhookActive = paymentRepository.isWebhookServerRunning
         _uiState.update {
-            it.copy(webhookServerRunning = paymentRepository.activeSource?.isActive == true 
-                && settingsRepository.settings.value.paymentReceptionMode == PaymentReceptionMode.WEBHOOK)
+            it.copy(webhookServerRunning = isWebhookActive)
         }
+        android.util.Log.d("SettingsViewModel", "Init: Webhook server running = $isWebhookActive")
+        
         // Auto-authenticate if no password is set
         if (settingsRepository.settings.value.adminPassword.isEmpty()) {
             _uiState.update { it.copy(isAuthenticated = true) }
@@ -148,26 +150,24 @@ class SettingsViewModel(
             val currentPort = _editableSettings.value.webhookPort
             if (_uiState.value.webhookServerRunning) {
                 // Stop the server
-                paymentRepository.stopCurrentSource()
+                paymentRepository.stopWebhookServer()
                 _uiState.update { it.copy(webhookServerRunning = false, webhookError = null) }
+                android.util.Log.d("SettingsViewModel", "Webhook server stopped")
             } else {
-                // Start the server  
+                // Start the server (without modifying permanent settings)
                 try {
-                    // First save the settings so port is persisted
-                    val currentSettings = _editableSettings.value.copy(
-                        paymentReceptionMode = PaymentReceptionMode.WEBHOOK
-                    )
-                    _editableSettings.update { currentSettings }
-                    settingsRepository.saveSettings(currentSettings)
-                    
+                    android.util.Log.d("SettingsViewModel", "Attempting to start webhook server on port $currentPort")
                     val success = paymentRepository.startWebhookServer(currentPort)
                     if (success) {
                         _uiState.update { it.copy(webhookServerRunning = true, webhookError = null) }
+                        android.util.Log.d("SettingsViewModel", "Webhook server started successfully")
                     } else {
                         _uiState.update { it.copy(webhookServerRunning = false, webhookError = "Failed to start server on port $currentPort") }
+                        android.util.Log.e("SettingsViewModel", "Failed to start webhook server")
                     }
                 } catch (e: Exception) {
                     _uiState.update { it.copy(webhookServerRunning = false, webhookError = e.message) }
+                    android.util.Log.e("SettingsViewModel", "Exception starting webhook server: ${e.message}", e)
                 }
             }
         }

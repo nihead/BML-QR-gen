@@ -47,10 +47,16 @@ class WebhookPaymentSource(
             }
             server?.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
             _isActive = true
-            Log.d(TAG, "Webhook server started on port $port")
+            val hostname = server?.hostname ?: "unknown"
+            val listeningPort = server?.listeningPort ?: -1
+            val isAlive = server?.isAlive ?: false
+            Log.d(TAG, "Webhook server started - Host: $hostname, Port: $listeningPort, Alive: $isAlive")
+            Log.d(TAG, "Server should be accessible at: http://<device-ip>:$port/health")
         } catch (e: Exception) {
             _isActive = false
             Log.e(TAG, "Failed to start webhook server on port $port: ${e.message}")
+            Log.e(TAG, "Exception type: ${e.javaClass.simpleName}")
+            e.printStackTrace()
             throw e
         }
     }
@@ -77,6 +83,8 @@ class WebhookPaymentSource(
         private val gson = Gson()
         
         override fun serve(session: IHTTPSession): Response {
+            Log.d(TAG, "Incoming request: ${session.method} ${session.uri} from ${session.remoteIpAddress}")
+            
             // Handle CORS preflight
             if (session.method == Method.OPTIONS) {
                 return newCorsResponse(newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, ""))
@@ -119,11 +127,14 @@ class WebhookPaymentSource(
                 } catch (e: Exception) {
                     // If parsing fails, try to extract amount manually
                     val amountRegex = """"amount"\s*:\s*"([^"]+)"""".toRegex()
-                    val match = amountRegex.find(bodyStr)
-                    if (match != null) {
+                    val completedRegex = """"completed"\s*:\s*(true|false)""".toRegex()
+                    val amountMatch = amountRegex.find(bodyStr)
+                    val completedMatch = completedRegex.find(bodyStr)
+                    if (amountMatch != null) {
                         PaymentRequest(
-                            amount = match.groupValues[1],
-                            timestamp = Instant.now().toString()
+                            amount = amountMatch.groupValues[1],
+                            timestamp = Instant.now().toString(),
+                            completed = completedMatch?.groupValues?.get(1)?.toBoolean()
                         )
                     } else {
                         null
@@ -166,7 +177,7 @@ class WebhookPaymentSource(
             return newFixedLengthResponse(
                 Response.Status.OK, 
                 MIME_JSON, 
-                """{"service": "PayMV POS Terminal", "endpoints": [{"method": "POST", "path": "/payment", "body": {"amount": "string", "timestamp": "string"}}, {"method": "GET", "path": "/health"}]}"""
+                """{"service": "PayMV POS Terminal", "endpoints": [{"method": "POST", "path": "/payment", "body": {"amount": "string", "timestamp": "string", "completed": "boolean (optional)"}}, {"method": "GET", "path": "/health"}]}"""
             )
         }
         

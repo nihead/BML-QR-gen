@@ -17,7 +17,8 @@ import java.time.Instant
  * Expected FCM data payload:
  * {
  *   "amount": "250.00",
- *   "timestamp": "2026-02-10T10:30:00Z"
+ *   "timestamp": "2026-02-10T10:30:00Z",
+ *   "completed": "true" // Optional: when true, closes QR display screen
  * }
  */
 class PayMVFirebaseMessagingService : FirebaseMessagingService() {
@@ -41,17 +42,19 @@ class PayMVFirebaseMessagingService : FirebaseMessagingService() {
         
         val amount = data["amount"]
         val timestamp = data["timestamp"] ?: Instant.now().toString()
+        val completed = data["completed"]?.toBoolean()
         
-        if (amount.isNullOrEmpty()) {
+        if (amount.isNullOrEmpty() && completed != true) {
             Log.w(TAG, "FCM message missing 'amount' field")
             return
         }
         
-        Log.d(TAG, "Payment received via FCM: amount=$amount, timestamp=$timestamp")
+        Log.d(TAG, "Payment received via FCM: amount=$amount, timestamp=$timestamp, completed=$completed")
         
         val payment = PaymentRequest(
-            amount = amount,
-            timestamp = timestamp
+            amount = amount ?: "",
+            timestamp = timestamp,
+            completed = completed
         )
         
         // Post to shared flow that FirebasePaymentSource observes
