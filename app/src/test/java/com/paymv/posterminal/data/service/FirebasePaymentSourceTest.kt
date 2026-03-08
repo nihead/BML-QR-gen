@@ -1,5 +1,6 @@
 package com.paymv.posterminal.data.service
 
+import com.paymv.posterminal.data.model.PaymentRequest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -35,7 +36,11 @@ class FirebasePaymentSourceTest {
         source.start()
         
         // Simulate receiving a payment via companion object
-        FirebasePaymentSource.onPaymentReceived("42.00", System.currentTimeMillis())
+        val testPayment = PaymentRequest(
+            amount = "42.00",
+            timestamp = System.currentTimeMillis().toString()
+        )
+        FirebasePaymentSource.onPaymentReceived(testPayment)
         
         val payment = withTimeoutOrNull(2000) {
             source.observePayments().first()

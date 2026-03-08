@@ -33,7 +33,7 @@ fun AppNavigation(navController: NavHostController) {
     
     // Initialize repositories (remember to prevent recreation on recomposition)
     val settingsRepository = remember { SettingsRepository(context) }
-    val paymentRepository = remember { PaymentRepository(RetrofitClient.paymentApi) }
+    val paymentRepository = remember { PaymentRepository(RetrofitClient.paymentApi) { settingsRepository.settings.value } }
     val networkMonitor = remember { NetworkMonitor(context) }
     
     // Determine start destination based on browser settings

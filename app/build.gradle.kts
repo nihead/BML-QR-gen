@@ -1,6 +1,6 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.gms.google-services")
 }
@@ -32,21 +32,24 @@ android {
         }
     }
 
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        jvmToolchain(17)
     }
 
     buildFeatures {
         compose = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.4"
     }
 
     packaging {
@@ -57,6 +60,9 @@ android {
 }
 
 dependencies {
+    // Core library desugaring for Java 8+ APIs on older Android versions
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    
     // Core Android
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")

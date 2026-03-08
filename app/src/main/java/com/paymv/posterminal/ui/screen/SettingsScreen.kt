@@ -1,6 +1,7 @@
 package com.paymv.posterminal.ui.screen
 
 import android.net.Uri
+import android.net.wifi.WifiManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -32,6 +33,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.paymv.posterminal.data.model.PaymentReceptionMode
 import com.paymv.posterminal.ui.viewmodel.SettingsViewModel
+import java.net.Inet4Address
+import java.net.NetworkInterface
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -382,7 +385,7 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    "Local Webhook Server",
+                                    "Local Server",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -437,10 +440,41 @@ fun SettingsScreen(
                     if (uiState.webhookServerRunning) {
                         Spacer(modifier = Modifier.height(12.dp))
                         
+                        val deviceIp = remember { getDeviceIpAddress() }
+                        
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "Web UI",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "http://$deviceIp:${editableSettings.webhookPort}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Open this URL in a browser to send test payments and mark transactions as paid.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
                         OutlinedTextField(
                             value = editableSettings.webhookPort.toString(),
                             onValueChange = { viewModel.updateWebhookPort(it) },
-                            label = { Text("Webhook Port") },
+                            label = { Text("Server Port") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                             enabled = false,
@@ -452,7 +486,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         Text(
-                            text = "Send POST requests to http://<device-ip>:${editableSettings.webhookPort}/payment with JSON body {\"amount\": \"25.00\"} to display QR code.",
+                            text = "API: POST http://$deviceIp:${editableSettings.webhookPort}/payment with JSON body {\"amount\": \"25.00\"}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                         )
@@ -464,7 +498,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = editableSettings.webhookPort.toString(),
                             onValueChange = { viewModel.updateWebhookPort(it) },
-                            label = { Text("Webhook Port") },
+                            label = { Text("Server Port") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                             supportingText = {
@@ -536,4 +570,27 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+/**
+ * Get the device's local IP address on the WiFi/LAN network.
+ */
+private fun getDeviceIpAddress(): String {
+    try {
+        val interfaces = NetworkInterface.getNetworkInterfaces()
+        while (interfaces.hasMoreElements()) {
+            val networkInterface = interfaces.nextElement()
+            if (networkInterface.isLoopback || !networkInterface.isUp) continue
+            val addresses = networkInterface.inetAddresses
+            while (addresses.hasMoreElements()) {
+                val address = addresses.nextElement()
+                if (address is Inet4Address && !address.isLoopbackAddress) {
+                    return address.hostAddress ?: continue
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // Ignore
+    }
+    return "127.0.0.1"
 }

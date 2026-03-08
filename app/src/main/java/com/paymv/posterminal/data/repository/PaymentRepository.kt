@@ -2,6 +2,7 @@ package com.paymv.posterminal.data.repository
 
 import android.util.Log
 import com.paymv.posterminal.data.api.PaymentApi
+import com.paymv.posterminal.data.model.AppSettings
 import com.paymv.posterminal.data.model.PaymentReceptionMode
 import com.paymv.posterminal.data.model.PaymentRequest
 import com.paymv.posterminal.data.service.FirebasePaymentSource
@@ -12,7 +13,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
-class PaymentRepository(private val api: PaymentApi) {
+class PaymentRepository(
+    private val api: PaymentApi,
+    private val settingsProvider: (() -> AppSettings)? = null
+) {
     
     companion object {
         private const val TAG = "PaymentRepository"
@@ -67,7 +71,7 @@ class PaymentRepository(private val api: PaymentApi) {
         val source = when (mode) {
             PaymentReceptionMode.POLLING -> PollingPaymentSource(api)
             PaymentReceptionMode.FIREBASE -> FirebasePaymentSource()
-            PaymentReceptionMode.WEBHOOK -> WebhookPaymentSource(webhookPort)
+            PaymentReceptionMode.WEBHOOK -> WebhookPaymentSource(webhookPort, settingsProvider)
         }
         
         currentSource = source
@@ -92,7 +96,7 @@ class PaymentRepository(private val api: PaymentApi) {
                 }
                 
                 Log.d(TAG, "Creating manual webhook server on port $port")
-                val source = WebhookPaymentSource(port)
+                val source = WebhookPaymentSource(port, settingsProvider)
                 source.start()
                 
                 // Verify server is actually active
