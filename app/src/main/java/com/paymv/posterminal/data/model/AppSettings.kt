@@ -23,5 +23,6 @@ data class AppSettings(
     val paymentReceptionMode: PaymentReceptionMode = PaymentReceptionMode.POLLING,
     val deviceId: String = "",       // Firebase Installation ID (auto-generated)
     val fcmToken: String = "",       // FCM registration token
-    val webhookPort: Int = 4646      // Local webhook server port
+    val webhookPort: Int = 4646,     // Local webhook server port
+    val isWebhookServerEnabled: Boolean = false // Remember webhook server state across app restarts
 )

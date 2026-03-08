@@ -23,7 +23,7 @@ class WebhookPaymentSourceTest {
     }
     
     @After
-    fun teardown() {
+    fun teardown() = runBlocking {
         webhookSource.stop()
     }
     
@@ -104,10 +104,20 @@ class WebhookPaymentSourceTest {
         conn.setRequestProperty("Content-Type", "application/json")
         conn.doOutput = true
         
-        val json = """{"timestamp": 1700000000}"""
+        val json = """{"timestamp": "1700000000"}"""
         OutputStreamWriter(conn.outputStream).use { it.write(json) }
         
-        assertEquals(400, conn.responseCode)
+        val responseCode = conn.responseCode
+        val responseBody = if (responseCode == 200) {
+            conn.inputStream.bufferedReader().readText()
+        } else {
+            conn.errorStream?.bufferedReader()?.readText() ?: "No error stream"
+        }
+        
+        println("Response code: $responseCode")
+        println("Response body: $responseBody")
+        
+        assertEquals(400, responseCode)
         conn.disconnect()
     }
     

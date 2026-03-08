@@ -273,7 +273,7 @@ class WebhookPaymentSource(
                     }
                 }
                 
-                if (payment != null && (payment.amount.isNotEmpty() || payment.completed == true)) {
+                if (payment != null && (!payment.amount.isNullOrEmpty() || payment.completed == true)) {
                     onPayment(payment)
                     newFixedLengthResponse(
                         Response.Status.OK, 

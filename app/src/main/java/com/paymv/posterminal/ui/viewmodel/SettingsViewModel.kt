@@ -38,6 +38,31 @@ class SettingsViewModel(
         }
         android.util.Log.d("SettingsViewModel", "Init: Webhook server running = $isWebhookActive")
         
+        // Auto-start webhook server if it was enabled previously
+        if (!isWebhookActive && settingsRepository.settings.value.isWebhookServerEnabled) {
+            viewModelScope.launch {
+                val port = settingsRepository.settings.value.webhookPort
+                android.util.Log.d("SettingsViewModel", "Auto-starting webhook server on port $port")
+                try {
+                    val success = paymentRepository.startWebhookServer(port)
+                    if (success) {
+                        _uiState.update { it.copy(webhookServerRunning = true, webhookError = null) }
+                        android.util.Log.d("SettingsViewModel", "Webhook server auto-started successfully")
+                    } else {
+                        _uiState.update { it.copy(webhookServerRunning = false, webhookError = "Failed to auto-start server") }
+                        android.util.Log.e("SettingsViewModel", "Failed to auto-start webhook server")
+                        // Disable the flag since server failed to start
+                        settingsRepository.saveSettings(settingsRepository.settings.value.copy(isWebhookServerEnabled = false))
+                    }
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(webhookServerRunning = false, webhookError = e.message) }
+                    android.util.Log.e("SettingsViewModel", "Exception auto-starting webhook server: ${e.message}", e)
+                    // Disable the flag since server failed to start
+                    settingsRepository.saveSettings(settingsRepository.settings.value.copy(isWebhookServerEnabled = false))
+                }
+            }
+        }
+        
         // Auto-authenticate if no password is set
         if (settingsRepository.settings.value.adminPassword.isEmpty()) {
             _uiState.update { it.copy(isAuthenticated = true) }
@@ -153,6 +178,10 @@ class SettingsViewModel(
                 paymentRepository.stopWebhookServer()
                 _uiState.update { it.copy(webhookServerRunning = false, webhookError = null) }
                 android.util.Log.d("SettingsViewModel", "Webhook server stopped")
+                
+                // Save the disabled state to settings
+                val updatedSettings = _editableSettings.value.copy(isWebhookServerEnabled = false)
+                settingsRepository.saveSettings(updatedSettings)
             } else {
                 // Start the server (without modifying permanent settings)
                 try {
@@ -161,6 +190,10 @@ class SettingsViewModel(
                     if (success) {
                         _uiState.update { it.copy(webhookServerRunning = true, webhookError = null) }
                         android.util.Log.d("SettingsViewModel", "Webhook server started successfully")
+                        
+                        // Save the enabled state to settings
+                        val updatedSettings = _editableSettings.value.copy(isWebhookServerEnabled = true)
+                        settingsRepository.saveSettings(updatedSettings)
                     } else {
                         _uiState.update { it.copy(webhookServerRunning = false, webhookError = "Failed to start server on port $currentPort") }
                         android.util.Log.e("SettingsViewModel", "Failed to start webhook server")
