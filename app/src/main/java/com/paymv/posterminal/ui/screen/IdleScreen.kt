@@ -7,10 +7,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +22,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.paymv.posterminal.data.model.PaymentReceptionMode
 import com.paymv.posterminal.ui.component.AdBanner
 import com.paymv.posterminal.ui.component.ConnectionStatus
 import com.paymv.posterminal.ui.theme.Gray
@@ -42,8 +39,8 @@ fun IdleScreen(
     val uiState by viewModel.uiState.collectAsState()
     val settings by viewModel.settings.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
+    val webhookServerStatus by viewModel.webhookServerStatus.collectAsState()
     val scope = rememberCoroutineScope()
-    val activeMode = uiState.activeMode
     
     // Clear QR-active flag when IdleScreen enters composition (returning from QR)
     LaunchedEffect(Unit) {
@@ -89,8 +86,8 @@ fun IdleScreen(
                 .padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Ad Banner (if not pro mode)
-            if (!settings.proMode) {
+            // Top Ad Banner (if ads not hidden)
+            if (!settings.hideAds) {
                 AdBanner(text = "Advertisement Space - Top")
             }
             
@@ -140,40 +137,65 @@ fun IdleScreen(
             // Connection Status
             ConnectionStatus(isConnected = isConnected)
             
-            // Active payment mode indicator (only shown for Pro users)
-            if (settings.proMode) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.padding(horizontal = 32.dp)
+            // Webhook Server Status
+            Spacer(modifier = Modifier.height(12.dp))
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (webhookServerStatus) 
+                    MaterialTheme.colorScheme.surfaceVariant 
+                else 
+                    MaterialTheme.colorScheme.surface,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = when (activeMode) {
-                                PaymentReceptionMode.POLLING -> Icons.Default.Sync
-                                PaymentReceptionMode.FIREBASE -> Icons.Default.Cloud
-                                PaymentReceptionMode.WEBHOOK -> Icons.Default.Dns
-                            },
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = DarkPrimary
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = when (activeMode) {
-                                PaymentReceptionMode.POLLING -> "Polling Mode"
-                                PaymentReceptionMode.FIREBASE -> "Firebase Mode"
-                                PaymentReceptionMode.WEBHOOK -> "Webhook :${settings.webhookPort}"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = DarkPrimary
-                        )
-                    }
+                    // Status indicator dot
+                    Surface(
+                        shape = CircleShape,
+                        color = if (webhookServerStatus) 
+                            MaterialTheme.colorScheme.primary 
+                        else 
+                            MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.size(8.dp)
+                    ) {}
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Text(
+                        text = "Local Server: ${if (webhookServerStatus) "ACTIVE" else "INACTIVE"}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            // Active webhook indicator
+            Spacer(modifier = Modifier.height(8.dp))
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Dns,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = DarkPrimary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Webhook :${settings.webhookPort}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = DarkPrimary
+                    )
                 }
             }
             
@@ -242,7 +264,7 @@ fun IdleScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Bottom Ad Banner (if not pro mode)
+            // Bottom Ad Banner (if ads not hidden)
             if (!settings.proMode) {
                 AdBanner(text = "Advertisement Space - Bottom")
             } else {

@@ -1,7 +1,9 @@
 package com.paymv.posterminal.ui.navigation
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -25,6 +27,9 @@ import com.paymv.posterminal.ui.viewmodel.QrDisplayViewModel
 import com.paymv.posterminal.ui.viewmodel.SettingsViewModel
 import com.paymv.posterminal.ui.viewmodel.ViewModelFactory
 import com.paymv.posterminal.util.NetworkMonitor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavigation(navController: NavHostController) {
@@ -35,6 +40,17 @@ fun AppNavigation(navController: NavHostController) {
     val settingsRepository = remember { SettingsRepository(context) }
     val paymentRepository = remember { PaymentRepository(RetrofitClient.paymentApi) { settingsRepository.settings.value } }
     val networkMonitor = remember { NetworkMonitor(context) }
+    
+    // Clean up webhook server when app is destroyed
+    DisposableEffect(Unit) {
+        onDispose {
+            // Stop webhook server when app exits
+            CoroutineScope(Dispatchers.IO).launch {
+                paymentRepository.stopWebhookServer()
+                Log.d("AppNavigation", "Webhook server stopped on app exit")
+            }
+        }
+    }
     
     // Determine start destination based on browser settings
     // Use remember to capture the initial value and prevent NavHost reconfiguration
@@ -89,7 +105,43 @@ fun AppNavigation(navController: NavHostController) {
                 viewModel = viewModel,
                 amount = amount,
                 onNavigateBack = {
-                    navController.popBackStack()
+                    try {
+                        Log.d("QrNavigation", "onNavigateBack called")
+                        // Pop back to home screen - removes QR screen from back stack
+                        // First try to pop back stack
+                        val popped = navController.popBackStack()
+                        Log.d("QrNavigation", "popBackStack result: $popped")
+                        
+                        // If back stack was empty (shouldn't happen), navigate to home as fallback
+                        if (!popped) {
+                            Log.d("QrNavigation", "Back stack empty, using fallback navigation")
+                            val currentSettings = settingsRepository.settings.value
+                            Log.d("QrNavigation", "browserEnabled=${currentSettings.browserEnabled}, browserUrl=${currentSettings.browserUrl}")
+                            val homeRoute = if (currentSettings.browserEnabled && currentSettings.browserUrl.isNotEmpty()) {
+                                Screen.Browser.route
+                            } else {
+                                Screen.Idle.route
+                            }
+                            Log.d("QrNavigation", "Navigating to: $homeRoute")
+                            navController.navigate(homeRoute) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                            Log.d("QrNavigation", "Fallback navigation completed")
+                        } else {
+                            Log.d("QrNavigation", "Successfully popped back to previous screen")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("QrNavigation", "Exception in onNavigateBack: ${e.message}", e)
+                        try {
+                            // Force navigate to Idle as last resort
+                            navController.navigate(Screen.Idle.route) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                            Log.d("QrNavigation", "Applied last resort Idle navigation")
+                        } catch (e2: Exception) {
+                            Log.e("QrNavigation", "Last resort navigation also failed: ${e2.message}", e2)
+                        }
+                    }
                 }
             )
         }

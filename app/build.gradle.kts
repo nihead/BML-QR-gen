@@ -2,17 +2,16 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
-    id("com.google.gms.google-services")
 }
 
 android {
     namespace = "com.paymv.posterminal"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.paymv.posterminal"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
 
@@ -105,10 +104,8 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
-    // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
-    implementation("com.google.firebase:firebase-messaging-ktx")
-    implementation("com.google.firebase:firebase-installations-ktx")
+    // Google AdMob
+    implementation("com.google.android.gms:play-services-ads:23.0.0")
 
     // Embedded HTTP Server (Webhook)
     implementation("org.nanohttpd:nanohttpd:2.3.1")

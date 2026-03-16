@@ -2,10 +2,10 @@ package com.paymv.posterminal.ui.viewmodel
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.paymv.posterminal.data.model.AppSettings
-import com.paymv.posterminal.data.model.PaymentReceptionMode
 import com.paymv.posterminal.data.repository.PaymentRepository
 import com.paymv.posterminal.data.repository.SettingsRepository
 import com.paymv.posterminal.util.PayMVQrGenerator
@@ -42,6 +42,7 @@ class QrDisplayViewModel(
     private var paymentListenerJob: kotlinx.coroutines.Job? = null
     private var updateJob: kotlinx.coroutines.Job? = null
     private var lastProcessedAmount: String? = null
+    private var isNavigatingAway = false
     
     init {
         lastProcessedAmount = amount
@@ -49,7 +50,6 @@ class QrDisplayViewModel(
         updateJob = viewModelScope.launch {
             generateQRCode()
             startCountdown()
-            clearPaymentFromBackend()
         }
         listenForNewPayments()
     }
@@ -57,35 +57,57 @@ class QrDisplayViewModel(
     private fun listenForNewPayments() {
         paymentListenerJob?.cancel()
         paymentListenerJob = viewModelScope.launch {
-            val settings = settingsRepository.settings.value
-            val mode = if (settings.proMode) settings.paymentReceptionMode else PaymentReceptionMode.POLLING
-            
-            // Choose payment flow: prefer manual webhook server if running, 
-            // otherwise use the configured mode
-            val paymentFlow = paymentRepository.observeWebhookPayments()
-                ?: paymentRepository.observePayments(mode, settings.webhookPort)
+            // Observe payments from webhook server
+            val paymentFlow = paymentRepository.observePayments()
+            if (paymentFlow == null) {
+                Log.d("QrDisplayViewModel", "No payment flow available")
+                return@launch
+            }
             
             paymentFlow.collect { payment ->
-                    if (payment != null) {
-                        // Check if this is a completion notification
-                        if (payment.completed == true) {
-                            // Payment is completed, navigate back
-                            paymentListenerJob?.cancel()
-                            countdownJob?.cancel()
-                            updateJob?.cancel()
-                            _shouldNavigateBack.value = true
-                        } else if (payment.amount != lastProcessedAmount) {
-                            // Only process if it's a genuinely new payment we haven't handled
-                            lastProcessedAmount = payment.amount
-                            paymentRepository.clearPayment()
-                            updatePaymentDisplay(payment.amount)
-                        }
-                    }
+                // If countdown already expired and navigating away, ignore new payments
+                if (isNavigatingAway) {
+                    Log.d("QrDisplayViewModel", "Ignoring payment - already navigating away")
+                    return@collect
                 }
+                // Ignore null payments
+                if (payment == null) {
+                    Log.d("QrDisplayViewModel", "Ignoring null payment")
+                    return@collect
+                }
+                Log.d("QrDisplayViewModel", "Payment received: amount=${payment.amount}, completed=${payment.completed}")
+                // Check if this is a completion notification FIRST (before amount check)
+                if (payment.completed == true) {
+                    // Payment is completed, navigate back
+                    Log.d("QrDisplayViewModel", "Payment completed! Setting shouldNavigateBack=true")
+                    isNavigatingAway = true
+                    viewModelScope.launch {
+                        paymentRepository.consumePayment()
+                    }
+                    paymentListenerJob?.cancel()
+                    countdownJob?.cancel()
+                    updateJob?.cancel()
+                    _shouldNavigateBack.value = true
+                } else if (!payment.amount.isNullOrBlank() && payment.amount != lastProcessedAmount) {
+                    // Only process if it has an amount and is a genuinely new payment
+                    Log.d("QrDisplayViewModel", "New payment amount detected: ${payment.amount}")
+                    lastProcessedAmount = payment.amount
+                    viewModelScope.launch {
+                        // Consume the payment to prevent replay when screen is recreated
+                        paymentRepository.consumePayment()
+                    }
+                    updatePaymentDisplay(payment.amount)
+                }
+            }
         }
     }
     
     private fun updatePaymentDisplay(newAmount: String) {
+        // If countdown already expired, don't restart it
+        if (isNavigatingAway) {
+            Log.d("QrDisplayViewModel", "Not updating payment display - already navigating away")
+            return
+        }
         // Cancel any in-flight update to prevent double display
         updateJob?.cancel()
         updateJob = viewModelScope.launch {
@@ -108,7 +130,6 @@ class QrDisplayViewModel(
             
             // Start new countdown
             startCountdown()
-            clearPaymentFromBackend()
         }
     }
     
@@ -159,6 +180,8 @@ class QrDisplayViewModel(
                 delay(1000)
                 _timeRemaining.update { it - 1 }
             }
+            // Timer expired - set flag first to prevent new payments from restarting it
+            isNavigatingAway = true
             // Clean up before navigating back (same as onBackPressed)
             paymentListenerJob?.cancel()
             updateJob?.cancel()
@@ -166,15 +189,16 @@ class QrDisplayViewModel(
         }
     }
     
-    private suspend fun clearPaymentFromBackend() {
-        paymentRepository.clearPayment()
-    }
-    
     fun onBackPressed() {
         paymentListenerJob?.cancel()
         countdownJob?.cancel()
         updateJob?.cancel()
         _shouldNavigateBack.value = true
+    }
+    
+    fun resetNavigationFlag() {
+        _shouldNavigateBack.value = false
+        isNavigatingAway = false
     }
 }
 

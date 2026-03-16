@@ -7,5 +7,8 @@
             "default": true
         }
     ],
-    "java.home": "C:\\Program Files\\Microsoft\\jdk-17.0.18.8-hotspot"
+    "java.home": "C:\\Program Files\\Microsoft\\jdk-17.0.18.8-hotspot",
+    "chat.tools.terminal.autoApprove": {
+        ".\\gradlew.bat": true
+    }
 }

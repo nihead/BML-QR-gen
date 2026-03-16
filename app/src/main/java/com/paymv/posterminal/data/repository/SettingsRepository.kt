@@ -4,16 +4,11 @@ import android.content.Context
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.google.firebase.installations.FirebaseInstallations
-import com.google.firebase.messaging.FirebaseMessaging
 import com.google.gson.Gson
 import com.paymv.posterminal.data.model.AppSettings
-import com.paymv.posterminal.data.model.PaymentReceptionMode
-import com.paymv.posterminal.data.service.PayMVFirebaseMessagingService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.tasks.await
 
 class SettingsRepository(context: Context) {
     
@@ -37,17 +32,6 @@ class SettingsRepository(context: Context) {
     
     private val _settings = MutableStateFlow(loadSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
-    
-    init {
-        // Set up FCM token refresh callback
-        PayMVFirebaseMessagingService.onTokenRefreshed = { token ->
-            val current = _settings.value
-            if (current.fcmToken != token) {
-                saveSettings(current.copy(fcmToken = token))
-                Log.d(TAG, "FCM token updated in settings")
-            }
-        }
-    }
     
     private fun loadSettings(): AppSettings {
         val json = sharedPreferences.getString("app_settings", null)
@@ -79,9 +63,7 @@ class SettingsRepository(context: Context) {
             accountName    = if (s.accountName    != null) s.accountName    else defaults.accountName,
             accountNumber  = if (s.accountNumber  != null) s.accountNumber  else defaults.accountNumber,
             adminPassword  = if (s.adminPassword  != null) s.adminPassword  else defaults.adminPassword,
-            browserUrl     = if (s.browserUrl     != null) s.browserUrl     else defaults.browserUrl,
-            deviceId       = if (s.deviceId       != null) s.deviceId       else defaults.deviceId,
-            fcmToken       = if (s.fcmToken       != null) s.fcmToken       else defaults.fcmToken
+            browserUrl     = if (s.browserUrl     != null) s.browserUrl     else defaults.browserUrl
         )
     }
     
@@ -89,74 +71,6 @@ class SettingsRepository(context: Context) {
         val json = gson.toJson(settings)
         sharedPreferences.edit().putString("app_settings", json).apply()
         _settings.value = settings
-    }
-    
-    /**
-     * Initialize device ID from Firebase Installations API.
-     * Called once on first app launch or when device ID is empty.
-     */
-    suspend fun initializeDeviceId() {
-        val current = _settings.value
-        if (current.deviceId.isNotEmpty()) return
-        
-        try {
-            val installationId = FirebaseInstallations.getInstance().id.await()
-            saveSettings(current.copy(deviceId = installationId))
-            Log.d(TAG, "Device ID initialized: $installationId")
-            
-            // Subscribe to device-specific FCM topic
-            subscribeToDeviceTopic(installationId)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get Firebase Installation ID: ${e.message}")
-        }
-    }
-    
-    /**
-     * Refresh FCM token and save to settings.
-     */
-    suspend fun refreshFcmToken() {
-        try {
-            val token = FirebaseMessaging.getInstance().token.await()
-            val current = _settings.value
-            if (current.fcmToken != token) {
-                saveSettings(current.copy(fcmToken = token))
-                Log.d(TAG, "FCM token refreshed: ${token.take(20)}...")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to refresh FCM token: ${e.message}")
-        }
-    }
-    
-    /**
-     * Subscribe to the device-specific FCM topic.
-     */
-    suspend fun subscribeToDeviceTopic(deviceId: String? = null) {
-        try {
-            val id = deviceId ?: _settings.value.deviceId
-            if (id.isEmpty()) return
-            
-            val topic = "device_$id"
-            FirebaseMessaging.getInstance().subscribeToTopic(topic).await()
-            Log.d(TAG, "Subscribed to FCM topic: $topic")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to subscribe to FCM topic: ${e.message}")
-        }
-    }
-    
-    /**
-     * Unsubscribe from the device-specific FCM topic.
-     */
-    suspend fun unsubscribeFromDeviceTopic() {
-        try {
-            val id = _settings.value.deviceId
-            if (id.isEmpty()) return
-            
-            val topic = "device_$id"
-            FirebaseMessaging.getInstance().unsubscribeFromTopic(topic).await()
-            Log.d(TAG, "Unsubscribed from FCM topic: $topic")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to unsubscribe from FCM topic: ${e.message}")
-        }
     }
     
     fun validatePassword(inputPassword: String): Boolean {

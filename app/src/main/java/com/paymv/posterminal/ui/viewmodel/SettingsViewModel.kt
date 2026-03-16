@@ -1,12 +1,9 @@
 package com.paymv.posterminal.ui.viewmodel
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.paymv.posterminal.data.model.AppSettings
-import com.paymv.posterminal.data.model.PaymentReceptionMode
 import com.paymv.posterminal.data.repository.PaymentRepository
 import com.paymv.posterminal.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.*
@@ -37,31 +34,6 @@ class SettingsViewModel(
             it.copy(webhookServerRunning = isWebhookActive)
         }
         android.util.Log.d("SettingsViewModel", "Init: Webhook server running = $isWebhookActive")
-        
-        // Auto-start webhook server if it was enabled previously
-        if (!isWebhookActive && settingsRepository.settings.value.isWebhookServerEnabled) {
-            viewModelScope.launch {
-                val port = settingsRepository.settings.value.webhookPort
-                android.util.Log.d("SettingsViewModel", "Auto-starting webhook server on port $port")
-                try {
-                    val success = paymentRepository.startWebhookServer(port)
-                    if (success) {
-                        _uiState.update { it.copy(webhookServerRunning = true, webhookError = null) }
-                        android.util.Log.d("SettingsViewModel", "Webhook server auto-started successfully")
-                    } else {
-                        _uiState.update { it.copy(webhookServerRunning = false, webhookError = "Failed to auto-start server") }
-                        android.util.Log.e("SettingsViewModel", "Failed to auto-start webhook server")
-                        // Disable the flag since server failed to start
-                        settingsRepository.saveSettings(settingsRepository.settings.value.copy(isWebhookServerEnabled = false))
-                    }
-                } catch (e: Exception) {
-                    _uiState.update { it.copy(webhookServerRunning = false, webhookError = e.message) }
-                    android.util.Log.e("SettingsViewModel", "Exception auto-starting webhook server: ${e.message}", e)
-                    // Disable the flag since server failed to start
-                    settingsRepository.saveSettings(settingsRepository.settings.value.copy(isWebhookServerEnabled = false))
-                }
-            }
-        }
         
         // Auto-authenticate if no password is set
         if (settingsRepository.settings.value.adminPassword.isEmpty()) {
@@ -111,6 +83,10 @@ class SettingsViewModel(
         _editableSettings.update { it.copy(showManualQrInput = enabled) }
     }
     
+    fun updateHideAds(enabled: Boolean) {
+        _editableSettings.update { it.copy(hideAds = enabled) }
+    }
+    
     fun updateBrowserEnabled(enabled: Boolean) {
         _editableSettings.update { it.copy(browserEnabled = enabled) }
     }
@@ -147,61 +123,33 @@ class SettingsViewModel(
         }
     }
     
-    fun updatePaymentReceptionMode(mode: PaymentReceptionMode) {
-        _editableSettings.update { it.copy(paymentReceptionMode = mode) }
-    }
-    
     fun updateWebhookPort(portStr: String) {
         val port = portStr.filter { it.isDigit() }.toIntOrNull() ?: return
         _editableSettings.update { it.copy(webhookPort = port) }
     }
     
-    fun copyDeviceIdToClipboard(context: Context) {
-        val deviceId = _editableSettings.value.deviceId
-        if (deviceId.isEmpty()) return
-        
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("PayMV Device ID", deviceId)
-        clipboard.setPrimaryClip(clip)
-        _uiState.update { it.copy(deviceIdCopied = true) }
-    }
-    
-    fun clearDeviceIdCopied() {
-        _uiState.update { it.copy(deviceIdCopied = false) }
-    }
-    
-    fun toggleWebhookServer() {
+    fun restartWebhookServer() {
         viewModelScope.launch {
             val currentPort = _editableSettings.value.webhookPort
-            if (_uiState.value.webhookServerRunning) {
-                // Stop the server
-                paymentRepository.stopWebhookServer()
-                _uiState.update { it.copy(webhookServerRunning = false, webhookError = null) }
-                android.util.Log.d("SettingsViewModel", "Webhook server stopped")
-                
-                // Save the disabled state to settings
-                val updatedSettings = _editableSettings.value.copy(isWebhookServerEnabled = false)
-                settingsRepository.saveSettings(updatedSettings)
-            } else {
-                // Start the server (without modifying permanent settings)
-                try {
-                    android.util.Log.d("SettingsViewModel", "Attempting to start webhook server on port $currentPort")
-                    val success = paymentRepository.startWebhookServer(currentPort)
-                    if (success) {
-                        _uiState.update { it.copy(webhookServerRunning = true, webhookError = null) }
-                        android.util.Log.d("SettingsViewModel", "Webhook server started successfully")
-                        
-                        // Save the enabled state to settings
-                        val updatedSettings = _editableSettings.value.copy(isWebhookServerEnabled = true)
-                        settingsRepository.saveSettings(updatedSettings)
-                    } else {
-                        _uiState.update { it.copy(webhookServerRunning = false, webhookError = "Failed to start server on port $currentPort") }
-                        android.util.Log.e("SettingsViewModel", "Failed to start webhook server")
-                    }
-                } catch (e: Exception) {
-                    _uiState.update { it.copy(webhookServerRunning = false, webhookError = e.message) }
-                    android.util.Log.e("SettingsViewModel", "Exception starting webhook server: ${e.message}", e)
+            android.util.Log.d("SettingsViewModel", "Restarting webhook server on port $currentPort")
+            
+            // Stop existing server
+            paymentRepository.stopWebhookServer()
+            _uiState.update { it.copy(webhookServerRunning = false, webhookError = null) }
+            
+            // Start with new port
+            try {
+                val success = paymentRepository.startWebhookServer(currentPort)
+                if (success) {
+                    _uiState.update { it.copy(webhookServerRunning = true, webhookError = null) }
+                    android.util.Log.d("SettingsViewModel", "Webhook server restarted successfully")
+                } else {
+                    _uiState.update { it.copy(webhookServerRunning = false, webhookError = "Failed to start server on port $currentPort") }
+                    android.util.Log.e("SettingsViewModel", "Failed to restart webhook server")
                 }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(webhookServerRunning = false, webhookError = e.message) }
+                android.util.Log.e("SettingsViewModel", "Exception restarting webhook server: ${e.message}", e)
             }
         }
     }
@@ -270,7 +218,6 @@ data class SettingsUiState(
     val passwordError: String? = null,
     val validationErrors: List<String> = emptyList(),
     val saveSuccess: Boolean = false,
-    val deviceIdCopied: Boolean = false,
     val webhookServerRunning: Boolean = false,
     val webhookError: String? = null
 )

@@ -33,14 +33,23 @@ class WebhookPaymentSource(
     private var _isActive = false
     override val isActive: Boolean get() = _isActive
     
-    private val _incomingPayments = MutableSharedFlow<PaymentRequest>(
+    private val _incomingPayments = MutableSharedFlow<PaymentRequest?>(
         replay = 1,
-        extraBufferCapacity = 5,
+        extraBufferCapacity = 0,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     
     override fun observePayments(): Flow<PaymentRequest?> {
         return _incomingPayments.asSharedFlow()
+    }
+    
+    /**
+     * Consume the current payment by emitting null.
+     * This clears the replay buffer so it won't be replayed to new collectors.
+     */
+    suspend fun consumePayment() {
+        _incomingPayments.emit(null)
+        Log.d(TAG, "Payment consumed - replay buffer cleared")
     }
     
     override suspend fun start() {
@@ -145,7 +154,8 @@ class WebhookPaymentSource(
                     val parsed = gson.fromJson(postData, Map::class.java)
                     parsed["amount"]?.toString()
                 } catch (e: Exception) {
-                    session.parms["amount"]
+                    // Fallback: try to extract from form parameters
+                    session.parameters["amount"]?.firstOrNull()
                 }
                 
                 if (amount.isNullOrBlank()) {

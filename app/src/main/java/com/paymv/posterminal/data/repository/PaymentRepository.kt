@@ -3,14 +3,13 @@ package com.paymv.posterminal.data.repository
 import android.util.Log
 import com.paymv.posterminal.data.api.PaymentApi
 import com.paymv.posterminal.data.model.AppSettings
-import com.paymv.posterminal.data.model.PaymentReceptionMode
 import com.paymv.posterminal.data.model.PaymentRequest
-import com.paymv.posterminal.data.service.FirebasePaymentSource
-import com.paymv.posterminal.data.service.PaymentSource
-import com.paymv.posterminal.data.service.PollingPaymentSource
 import com.paymv.posterminal.data.service.WebhookPaymentSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 class PaymentRepository(
@@ -22,159 +21,91 @@ class PaymentRepository(
         private const val TAG = "PaymentRepository"
     }
     
-    private var currentSource: PaymentSource? = null
-    private var currentMode: PaymentReceptionMode? = null
+    // The webhook server instance
+    private var webhookServer: WebhookPaymentSource? = null
     
-    // Separate tracking for manually-started webhook server from Settings
-    private var manualWebhookServer: WebhookPaymentSource? = null
-    
-    /**
-     * Get the currently active payment source, or null if none.
-     */
-    val activeSource: PaymentSource? get() = currentSource ?: manualWebhookServer
+    // StateFlow to track webhook server status for UI updates
+    private val _webhookServerStatus = MutableStateFlow(false)
+    val webhookServerStatus: StateFlow<Boolean> = _webhookServerStatus.asStateFlow()
     
     /**
-     * Check if a webhook server is currently running (manual or active).
+     * Check if webhook server is currently running.
      */
     val isWebhookServerRunning: Boolean 
-        get() = manualWebhookServer?.isActive == true || 
-                (currentSource is WebhookPaymentSource && currentSource?.isActive == true)
+        get() = webhookServer?.isActive == true
     
     /**
-     * Observe payments from the specified reception mode.
-     * Automatically creates and starts the appropriate payment source.
-     * Reuses an already-active source if the mode and source match.
-     */
-    fun observePayments(mode: PaymentReceptionMode, webhookPort: Int = 4646): Flow<PaymentRequest?> {
-        // If mode hasn't changed and source is active, return existing flow
-        if (mode == currentMode && currentSource?.isActive == true) {
-            return currentSource!!.observePayments()
-        }
-        
-        // For WEBHOOK mode, if manual server is already running, reuse it
-        if (mode == PaymentReceptionMode.WEBHOOK && manualWebhookServer?.isActive == true) {
-            // Use manual server as the current source but keep tracking it
-            currentSource = manualWebhookServer
-            currentMode = mode
-            Log.d(TAG, "Reusing manual webhook server as active payment source")
-            return currentSource!!.observePayments()
-        }
-        
-        // For WEBHOOK mode, if server is already running on that port, reuse it
-        if (mode == PaymentReceptionMode.WEBHOOK && currentSource is WebhookPaymentSource && currentSource?.isActive == true) {
-            currentMode = mode
-            Log.d(TAG, "Reusing existing webhook server for active payment source")
-            return currentSource!!.observePayments()
-        }
-        
-        // Create new source for the requested mode
-        val source = when (mode) {
-            PaymentReceptionMode.POLLING -> PollingPaymentSource(api)
-            PaymentReceptionMode.FIREBASE -> FirebasePaymentSource()
-            PaymentReceptionMode.WEBHOOK -> WebhookPaymentSource(webhookPort, settingsProvider)
-        }
-        
-        currentSource = source
-        currentMode = mode
-        Log.d(TAG, "Payment source switched to: $mode")
-        
-        return source.observePayments()
-    }
-    
-    /**
-     * Start the webhook server (only needed for WEBHOOK mode).
-     * Starts as a manual server that won't be stopped by payment source changes.
+     * Start the webhook server on the specified port.
      */
     suspend fun startWebhookServer(port: Int = 4646): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // Stop any existing manual webhook server first
-                if (manualWebhookServer != null) {
-                    Log.d(TAG, "Stopping existing manual webhook server before starting new one")
-                    manualWebhookServer?.stop()
-                    manualWebhookServer = null
+                // Stop any existing server first
+                if (webhookServer != null) {
+                    Log.d(TAG, "Stopping existing webhook server before starting new one")
+                    webhookServer?.stop()
+                    webhookServer = null
                 }
                 
-                Log.d(TAG, "Creating manual webhook server on port $port")
+                Log.d(TAG, "Creating webhook server on port $port")
                 val source = WebhookPaymentSource(port, settingsProvider)
                 source.start()
                 
                 // Verify server is actually active
                 if (source.isActive) {
-                    manualWebhookServer = source
-                    Log.d(TAG, "Manual webhook server started successfully on port $port")
+                    webhookServer = source
+                    _webhookServerStatus.value = true
+                    Log.d(TAG, "Webhook server started successfully on port $port")
                     true
                 } else {
-                    Log.e(TAG, "Manual webhook server reported not active after start")
+                    _webhookServerStatus.value = false
+                    Log.e(TAG, "Webhook server reported not active after start")
                     source.stop()
                     false
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to start manual webhook server: ${e.message}", e)
+                _webhookServerStatus.value = false
+                Log.e(TAG, "Failed to start webhook server: ${e.message}", e)
                 false
             }
         }
     }
     
     /**
-     * Observe payments from the manual webhook server.
-     * Returns null flow if no manual webhook server is running.
+     * Observe payments from the webhook server.
+     * Returns null if webhook server is not running.
      */
-    fun observeWebhookPayments(): Flow<PaymentRequest?>? {
-        val server = manualWebhookServer
+    fun observePayments(): Flow<PaymentRequest?>? {
+        val server = webhookServer
         return if (server?.isActive == true) {
-            Log.d(TAG, "Providing webhook payment observations from manual server")
+            Log.d(TAG, "Providing webhook payment observations")
             server.observePayments()
         } else null
     }
     
     /**
-     * Stop only the webhook server (if it's running).
+     * Stop the webhook server.
      */
     suspend fun stopWebhookServer() {
         try {
-            // If currentSource is the same as manualWebhookServer, clear both
-            if (currentSource === manualWebhookServer) {
-                currentSource = null
-                currentMode = null
-            }
-            manualWebhookServer?.stop()
-            manualWebhookServer = null
-            Log.d(TAG, "Manual webhook server stopped")
+            webhookServer?.stop()
+            webhookServer = null
+            _webhookServerStatus.value = false
+            Log.d(TAG, "Webhook server stopped")
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping manual webhook server: ${e.message}")
+            Log.e(TAG, "Error stopping webhook server: ${e.message}")
         }
     }
     
     /**
-     * Stop the current payment source.
+     * Consume the current webhook payment to prevent replay.
      */
-    suspend fun stopCurrentSource() {
+    suspend fun consumePayment() {
         try {
-            currentSource?.stop()
-            currentSource = null
-            currentMode = null
-            Log.d(TAG, "Payment source stopped")
+            webhookServer?.consumePayment()
+            Log.d(TAG, "Webhook payment consumed")
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping payment source: ${e.message}")
-        }
-    }
-    
-    /**
-     * Legacy polling method (kept for backward compatibility).
-     */
-    fun pollForPayments(): Flow<PaymentRequest?> {
-        return observePayments(PaymentReceptionMode.POLLING)
-    }
-    
-    suspend fun clearPayment(): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                val response = api.clearPayment()
-                response.isSuccessful
-            } catch (e: Exception) {
-                false
-            }
+            Log.e(TAG, "Error consuming webhook payment: ${e.message}")
         }
     }
     

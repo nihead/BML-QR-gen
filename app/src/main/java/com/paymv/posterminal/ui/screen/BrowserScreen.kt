@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
+import com.paymv.posterminal.ui.component.AdBanner
 import com.paymv.posterminal.ui.viewmodel.BrowserViewModel
 import kotlinx.coroutines.delay
 
@@ -78,14 +79,20 @@ fun BrowserScreen(
             )
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // WebView
-            if (browserUrl.isNotEmpty()) {
-                AndroidView(
+            // WebView Content
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                // WebView
+                if (browserUrl.isNotEmpty()) {
+                    AndroidView(
                     factory = { context ->
                         WebView(context).apply {
                             settings.javaScriptEnabled = true
@@ -127,17 +134,17 @@ fun BrowserScreen(
                     // Auto-reload is handled by LaunchedEffect above.
                     modifier = Modifier.fillMaxSize()
                 )
-            }
-            
-            // Loading indicator
-            if (uiState.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            }
-            
-            // Error display
-            if (uiState.hasError) {
+                }
+                
+                // Loading indicator
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                
+                // Error display
+                if (uiState.hasError) {
                 Card(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -170,6 +177,12 @@ fun BrowserScreen(
                         )
                     }
                 }
+                }
+            }
+            
+            // Bottom Ad Banner (if ads not hidden)
+            if (!appSettings.hideAds) {
+                AdBanner()
             }
         }
     }

@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.paymv.posterminal.data.model.AppSettings
-import com.paymv.posterminal.data.model.PaymentReceptionMode
 import com.paymv.posterminal.data.model.PaymentRequest
 import com.paymv.posterminal.data.repository.PaymentRepository
 import com.paymv.posterminal.data.repository.SettingsRepository
@@ -28,72 +27,65 @@ class BrowserViewModel(
     private val _uiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = _uiState.asStateFlow()
     
+    // Expose webhook server status for consistency
+    val webhookServerStatus: StateFlow<Boolean> = paymentRepository.webhookServerStatus
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    
     private var paymentListenerJob: Job? = null
-    private var lastMode: PaymentReceptionMode? = null
     private var qrScreenActive = false
     
     init {
-        // Initialize device ID / FCM token
+        // Auto-start webhook server on init (if not already running)
         viewModelScope.launch {
-            settingsRepository.initializeDeviceId()
-            settingsRepository.refreshFcmToken()
-        }
-        
-        // Observe settings changes to switch payment source
-        viewModelScope.launch {
-            settings.collect { currentSettings ->
-                val mode = if (currentSettings.proMode) {
-                    currentSettings.paymentReceptionMode
+            if (!paymentRepository.isWebhookServerRunning) {
+                val port = settingsRepository.settings.value.webhookPort
+                Log.d(TAG, "Auto-starting webhook server on port $port")
+                val success = paymentRepository.startWebhookServer(port)
+                if (success) {
+                    collectPayments()
                 } else {
-                    PaymentReceptionMode.POLLING
+                    Log.e(TAG, "Failed to start webhook server on port $port")
                 }
-                
-                if (mode != lastMode || paymentListenerJob?.isActive != true) {
-                    startPaymentSource(mode, currentSettings.webhookPort)
-                }
-            }
-        }
-    }
-    
-    private fun startPaymentSource(mode: PaymentReceptionMode, webhookPort: Int) {
-        paymentListenerJob?.cancel()
-        lastMode = mode
-        Log.d(TAG, "Starting payment source: $mode")
-        
-        if (mode == PaymentReceptionMode.WEBHOOK) {
-            if (paymentRepository.activeSource?.isActive == true) {
-                collectPayments(mode, webhookPort)
             } else {
-                viewModelScope.launch {
-                    paymentRepository.stopCurrentSource()
-                    val success = paymentRepository.startWebhookServer(webhookPort)
-                    if (!success) {
-                        Log.e(TAG, "Failed to start webhook server on port $webhookPort")
-                        return@launch
-                    }
-                    collectPayments(mode, webhookPort)
+                // Server already running, just start collecting
+                collectPayments()
+            }
+        }
+        
+        // Re-collect payments when webhook server status changes
+        viewModelScope.launch {
+            paymentRepository.webhookServerStatus.collect { isActive ->
+                Log.d(TAG, "Webhook server status changed: $isActive")
+                if (isActive && paymentListenerJob?.isActive != true) {
+                    collectPayments()
                 }
             }
-        } else {
-            viewModelScope.launch { paymentRepository.stopCurrentSource() }
-            if (mode == PaymentReceptionMode.FIREBASE) {
-                viewModelScope.launch { settingsRepository.subscribeToDeviceTopic() }
-            }
-            collectPayments(mode, webhookPort)
         }
     }
     
-    private fun collectPayments(mode: PaymentReceptionMode, webhookPort: Int) {
+    private fun collectPayments() {
+        paymentListenerJob?.cancel()
         paymentListenerJob = viewModelScope.launch {
-            // Prefer manual webhook server if running, otherwise use configured mode
-            val paymentFlow = paymentRepository.observeWebhookPayments()
-                ?: paymentRepository.observePayments(mode, webhookPort)
+            val paymentFlow = paymentRepository.observePayments()
+            if (paymentFlow == null) {
+                Log.w(TAG, "No payment flow available - webhook server not running")
+                return@launch
+            }
             
             paymentFlow.collect { payment ->
-                    if (payment != null && !qrScreenActive) {
+                if (payment != null) {
+                    // Skip completion-only signals (no amount, just completed flag)
+                    if (payment.completed == true && payment.amount.isEmpty()) {
+                        Log.d(TAG, "Skipping completion-only signal (no amount to display)")
+                        return@collect
+                    }
+                    // Process any payment with an amount
+                    if (payment.amount.isNotEmpty() && !qrScreenActive) {
+                        Log.d(TAG, "Payment received: ${payment.amount} - triggering QR display")
                         _uiState.update { it.copy(pendingPayment = payment) }
                     }
                 }
+            }
         }
     }
     
@@ -121,9 +113,8 @@ class BrowserViewModel(
     override fun onCleared() {
         super.onCleared()
         paymentListenerJob?.cancel()
-        viewModelScope.launch {
-            paymentRepository.stopCurrentSource()
-        }
+        // Don't stop webhook server here - let IdleViewModel manage it
+        Log.d(TAG, "BrowserViewModel cleared")
     }
 }
 

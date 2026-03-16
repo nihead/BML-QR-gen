@@ -12,8 +12,7 @@ Build a native Android POS (Point of Sale) terminal application in Kotlin that r
 ## Core Features
 
 ### 1. **Payment Request Reception**
-- Poll backend API every 2 seconds for new payment requests
-- Backend URL: `https://pos-checkout-hub.preview.emergentagent.com/api/payment/latest`
+- App shoulb able create local web server, through which user can send payment info
 - On payment detected, automatically navigate to QR display screen
 - Clear payment from backend after displaying QR
 

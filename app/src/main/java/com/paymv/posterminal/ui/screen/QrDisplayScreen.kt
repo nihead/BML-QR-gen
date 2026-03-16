@@ -4,7 +4,7 @@ import android.view.WindowManager
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import android.util.Log
 import com.paymv.posterminal.ui.component.QRCodeView
 import com.paymv.posterminal.ui.theme.DarkPrimary
 import com.paymv.posterminal.ui.theme.Gray
@@ -46,7 +47,10 @@ fun QrDisplayScreen(
     // Auto navigate back when timeout
     LaunchedEffect(shouldNavigateBack) {
         if (shouldNavigateBack) {
+            Log.d("QrDisplayScreen", "shouldNavigateBack triggered, calling onNavigateBack()")
             onNavigateBack()
+            // Reset flag after navigation to prevent re-triggering if user comes back
+            viewModel.resetNavigationFlag()
         }
     }
     
@@ -56,7 +60,7 @@ fun QrDisplayScreen(
                 title = { Text("SCAN TO PAY") },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.onBackPressed() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )

@@ -13,6 +13,7 @@ import com.paymv.posterminal.ui.navigation.AppNavigation
 import com.paymv.posterminal.ui.theme.PayMVPOSTerminalTheme
 
 class MainActivity : ComponentActivity() {
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
