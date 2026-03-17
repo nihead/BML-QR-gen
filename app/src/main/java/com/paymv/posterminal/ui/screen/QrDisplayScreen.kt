@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import android.util.Log
+import com.paymv.posterminal.ui.component.AdBanner
 import com.paymv.posterminal.ui.component.QRCodeView
 import com.paymv.posterminal.ui.theme.DarkPrimary
 import com.paymv.posterminal.ui.theme.Gray
@@ -66,15 +67,20 @@ fun QrDisplayScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
         ) {
-            Spacer(modifier = Modifier.weight(0.5f))
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .padding(bottom = if (settings.hideAds) 0.dp else 50.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Spacer(modifier = Modifier.weight(0.5f))
             
             if (uiState.isLoading) {
                 CircularProgressIndicator()
@@ -130,14 +136,22 @@ fun QrDisplayScreen(
             
             Spacer(modifier = Modifier.weight(1f))
             
-            // Back Button
-            OutlinedButton(
-                onClick = { viewModel.onBackPressed() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                Text("Back to Home")
+                // Back Button
+                OutlinedButton(
+                    onClick = { viewModel.onBackPressed() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text("Back to Home")
+                }
+            }
+            
+            // Bottom Ad Banner - overlayed at bottom
+            if (!settings.hideAds) {
+                AdBanner(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

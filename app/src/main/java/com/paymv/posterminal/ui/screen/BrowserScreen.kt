@@ -79,7 +79,7 @@ fun BrowserScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -87,8 +87,7 @@ fun BrowserScreen(
             // WebView Content
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                    .fillMaxSize()
             ) {
                 // WebView
                 if (browserUrl.isNotEmpty()) {
@@ -180,9 +179,11 @@ fun BrowserScreen(
                 }
             }
             
-            // Bottom Ad Banner (if ads not hidden)
+            // Bottom Ad Banner - overlayed at very bottom
             if (!appSettings.hideAds) {
-                AdBanner()
+                AdBanner(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

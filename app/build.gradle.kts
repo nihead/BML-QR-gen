@@ -107,6 +107,9 @@ dependencies {
     // Google AdMob
     implementation("com.google.android.gms:play-services-ads:23.0.0")
 
+    // Google Play Billing (Subscriptions)
+    implementation("com.android.billingclient:billing-ktx:6.2.0")
+
     // Embedded HTTP Server (Webhook)
     implementation("org.nanohttpd:nanohttpd:2.3.1")
 

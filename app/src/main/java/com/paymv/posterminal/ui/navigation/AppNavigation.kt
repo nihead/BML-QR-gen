@@ -15,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.paymv.posterminal.data.api.RetrofitClient
+import com.paymv.posterminal.data.billing.SubscriptionRepository
 import com.paymv.posterminal.data.repository.PaymentRepository
 import com.paymv.posterminal.data.repository.SettingsRepository
 import com.paymv.posterminal.ui.screen.BrowserScreen
@@ -40,6 +41,7 @@ fun AppNavigation(navController: NavHostController) {
     val settingsRepository = remember { SettingsRepository(context) }
     val paymentRepository = remember { PaymentRepository(RetrofitClient.paymentApi) { settingsRepository.settings.value } }
     val networkMonitor = remember { NetworkMonitor(context) }
+    val subscriptionRepository = remember { SubscriptionRepository.getInstance(context) }
     
     // Clean up webhook server when app is destroyed
     DisposableEffect(Unit) {
@@ -149,7 +151,7 @@ fun AppNavigation(navController: NavHostController) {
         // Settings Screen
         composable(Screen.Settings.route) {
             val viewModel: SettingsViewModel = viewModel(
-                factory = ViewModelFactory.createSettingsViewModelFactory(settingsRepository, paymentRepository)
+                factory = ViewModelFactory.createSettingsViewModelFactory(settingsRepository, paymentRepository, subscriptionRepository)
             )
             
             SettingsScreen(

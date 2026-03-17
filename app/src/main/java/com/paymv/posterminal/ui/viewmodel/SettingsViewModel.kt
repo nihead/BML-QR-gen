@@ -1,8 +1,10 @@
 package com.paymv.posterminal.ui.viewmodel
 
+import android.app.Activity
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.paymv.posterminal.data.billing.SubscriptionRepository
 import com.paymv.posterminal.data.model.AppSettings
 import com.paymv.posterminal.data.repository.PaymentRepository
 import com.paymv.posterminal.data.repository.SettingsRepository
@@ -11,7 +13,8 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
-    private val paymentRepository: PaymentRepository
+    private val paymentRepository: PaymentRepository,
+    private val subscriptionRepository: SubscriptionRepository
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -21,6 +24,9 @@ class SettingsViewModel(
     
     private val _editableSettings = MutableStateFlow(settingsRepository.settings.value)
     val editableSettings: StateFlow<AppSettings> = _editableSettings.asStateFlow()
+    
+    // Subscription state
+    val isSubscribed: StateFlow<Boolean> = subscriptionRepository.isSubscribed
     
     init {
         viewModelScope.launch {
@@ -84,7 +90,43 @@ class SettingsViewModel(
     }
     
     fun updateHideAds(enabled: Boolean) {
+        // Only allow enabling hideAds if subscribed
+        if (enabled && !subscriptionRepository.isSubscribed.value) {
+            // Show subscription required dialog
+            _uiState.update { it.copy(showSubscriptionDialog = true) }
+            return
+        }
         _editableSettings.update { it.copy(hideAds = enabled) }
+    }
+    
+    /**
+     * Get formatted subscription price
+     */
+    fun getSubscriptionPrice(): String {
+        return subscriptionRepository.getFormattedPrice()
+    }
+    
+    /**
+     * Launch subscription purchase flow
+     */
+    fun purchaseSubscription(activity: Activity): Boolean {
+        return subscriptionRepository.purchaseSubscription(activity)
+    }
+    
+    /**
+     * Dismiss subscription dialog
+     */
+    fun dismissSubscriptionDialog() {
+        _uiState.update { it.copy(showSubscriptionDialog = false) }
+    }
+    
+    /**
+     * Refresh subscription status
+     */
+    fun refreshSubscription() {
+        viewModelScope.launch {
+            subscriptionRepository.refreshSubscriptionStatus()
+        }
     }
     
     fun updateBrowserEnabled(enabled: Boolean) {
@@ -219,5 +261,6 @@ data class SettingsUiState(
     val validationErrors: List<String> = emptyList(),
     val saveSuccess: Boolean = false,
     val webhookServerRunning: Boolean = false,
-    val webhookError: String? = null
+    val webhookError: String? = null,
+    val showSubscriptionDialog: Boolean = false
 )

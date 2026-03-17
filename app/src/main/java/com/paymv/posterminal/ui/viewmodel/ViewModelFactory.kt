@@ -3,6 +3,7 @@ package com.paymv.posterminal.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.paymv.posterminal.data.billing.SubscriptionRepository
 import com.paymv.posterminal.data.repository.PaymentRepository
 import com.paymv.posterminal.data.repository.SettingsRepository
 import com.paymv.posterminal.util.NetworkMonitor
@@ -44,13 +45,14 @@ object ViewModelFactory {
     
     fun createSettingsViewModelFactory(
         settingsRepository: SettingsRepository,
-        paymentRepository: PaymentRepository
+        paymentRepository: PaymentRepository,
+        subscriptionRepository: SubscriptionRepository
     ): ViewModelProvider.Factory {
         return object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-                    return SettingsViewModel(settingsRepository, paymentRepository) as T
+                    return SettingsViewModel(settingsRepository, paymentRepository, subscriptionRepository) as T
                 }
                 throw IllegalArgumentException("Unknown ViewModel class")
             }

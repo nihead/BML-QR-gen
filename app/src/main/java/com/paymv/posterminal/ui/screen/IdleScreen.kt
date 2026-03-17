@@ -265,10 +265,8 @@ fun IdleScreen(
             Spacer(modifier = Modifier.height(16.dp))
             
             // Bottom Ad Banner (if ads not hidden)
-            if (!settings.proMode) {
+            if (!settings.hideAds) {
                 AdBanner(text = "Advertisement Space - Bottom")
-            } else {
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }

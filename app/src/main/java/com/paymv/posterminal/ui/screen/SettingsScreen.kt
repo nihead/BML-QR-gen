@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -38,7 +39,9 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val editableSettings by viewModel.editableSettings.collectAsState()
+    val isSubscribed by viewModel.isSubscribed.collectAsState()
     val context = LocalContext.current
+    val activity = context as? android.app.Activity
     
     // Reactively determine if password dialog should show
     val needsPasswordAuth = !uiState.isAuthenticated && editableSettings.adminPassword.isNotEmpty()
@@ -277,23 +280,77 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
             
             // Hide Ads Toggle
-            Row(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Hide Advertisements", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Remove ad banners from the app",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-                Switch(
-                    checked = editableSettings.hideAds,
-                    onCheckedChange = { viewModel.updateHideAds(it) }
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isSubscribed) 
+                        MaterialTheme.colorScheme.primaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.surfaceVariant
                 )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = if (isSubscribed) 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    "Hide Advertisements",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    if (isSubscribed) "Premium Active" else "Premium Feature",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSubscribed)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                        if (isSubscribed) {
+                            Switch(
+                                checked = editableSettings.hideAds,
+                                onCheckedChange = { viewModel.updateHideAds(it) }
+                            )
+                        } else {
+                            TextButton(
+                                onClick = { viewModel.updateHideAds(true) }
+                            ) {
+                                Text(
+                                    "Subscribe",
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                    
+                    if (!isSubscribed) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Subscribe for ${viewModel.getSubscriptionPrice()} to remove all ads",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -545,6 +602,73 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+    
+    // Subscription Dialog
+    if (uiState.showSubscriptionDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissSubscriptionDialog() },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
+                )
+            },
+            title = { 
+                Text(
+                    "Premium Subscription",
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                ) 
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Remove all advertisements from the app",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        viewModel.getSubscriptionPrice(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "per month",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Cancel anytime from Google Play",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        activity?.let { viewModel.purchaseSubscription(it) }
+                        viewModel.dismissSubscriptionDialog()
+                    }
+                ) {
+                    Text("Subscribe Now")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { viewModel.dismissSubscriptionDialog() }
+                ) {
+                    Text("Maybe Later")
+                }
+            }
+        )
     }
 }
 
