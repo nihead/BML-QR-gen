@@ -19,6 +19,7 @@ import com.paymv.posterminal.data.billing.SubscriptionRepository
 import com.paymv.posterminal.data.repository.PaymentRepository
 import com.paymv.posterminal.data.repository.SettingsRepository
 import com.paymv.posterminal.ui.screen.BrowserScreen
+import com.paymv.posterminal.ui.screen.HelpScreen
 import com.paymv.posterminal.ui.screen.IdleScreen
 import com.paymv.posterminal.ui.screen.QrDisplayScreen
 import com.paymv.posterminal.ui.screen.SettingsScreen
@@ -83,6 +84,9 @@ fun AppNavigation(navController: NavHostController) {
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
+                },
+                onNavigateToHelp = {
+                    navController.navigate(Screen.Help.route)
                 }
             )
         }
@@ -189,6 +193,18 @@ fun AppNavigation(navController: NavHostController) {
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
+                },
+                onNavigateToHelp = {
+                    navController.navigate(Screen.Help.route)
+                }
+            )
+        }
+        
+        // Help Screen
+        composable(Screen.Help.route) {
+            HelpScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

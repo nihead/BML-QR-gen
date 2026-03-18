@@ -35,6 +35,9 @@ fun AdBanner(
     var adLoaded by remember { mutableStateOf(false) }
     var adFailed by remember { mutableStateOf(false) }
     
+    // Track the AdView instance for proper cleanup
+    var adViewInstance by remember { mutableStateOf<AdView?>(null) }
+    
     // Initialize Mobile Ads SDK once when composable mounts
     LaunchedEffect(Unit) {
         // Configure test device for development (remove or make conditional for production)
@@ -76,8 +79,8 @@ fun AdBanner(
         // AdMob Banner
         AndroidView(
             modifier = Modifier.fillMaxSize(),
-            factory = { context ->
-                AdView(context).apply {
+            factory = { ctx ->
+                AdView(ctx).apply {
                     setAdSize(AdSize.BANNER)
                     this.adUnitId = BANNER_AD_UNIT_ID
                     
@@ -108,9 +111,18 @@ fun AdBanner(
                         }
                     }
                     
+                    // Store reference for cleanup
+                    adViewInstance = this
+                    
                     // Load the ad
                     loadAd(AdRequest.Builder().build())
                 }
+            },
+            onRelease = { adView ->
+                // Properly destroy the AdView when released
+                adView.destroy()
+                adViewInstance = null
+                Log.d("AdBanner", "AdView destroyed")
             }
         )
         
@@ -135,6 +147,8 @@ fun AdBanner(
     // Clean up when composable leaves composition
     DisposableEffect(Unit) {
         onDispose {
+            adViewInstance?.destroy()
+            adViewInstance = null
             Log.d("AdBanner", "Banner disposed")
         }
     }

@@ -8,6 +8,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,7 +26,8 @@ import kotlinx.coroutines.delay
 fun BrowserScreen(
     viewModel: BrowserViewModel,
     onNavigateToQR: (String) -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToHelp: () -> Unit
 ) {
     val appSettings by viewModel.settings.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
@@ -72,6 +74,9 @@ fun BrowserScreen(
             TopAppBar(
                 title = { Text("PayMV Terminal") },
                 actions = {
+                    IconButton(onClick = onNavigateToHelp) {
+                        Icon(Icons.AutoMirrored.Filled.Help, contentDescription = "Help")
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }

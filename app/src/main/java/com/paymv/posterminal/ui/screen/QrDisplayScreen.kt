@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import android.util.Log
 import com.paymv.posterminal.ui.component.AdBanner
 import com.paymv.posterminal.ui.component.QRCodeView
+import com.paymv.posterminal.ui.component.ViberSlipMessage
 import com.paymv.posterminal.ui.theme.DarkPrimary
 import com.paymv.posterminal.ui.theme.Gray
 import com.paymv.posterminal.ui.viewmodel.QrDisplayViewModel
@@ -132,6 +133,12 @@ fun QrDisplayScreen(
                     color = Gray,
                     textAlign = TextAlign.Center
                 )
+                
+                // Viber slip message (if Viber number is set)
+                if (!settings.viberNumber.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ViberSlipMessage(viberNumber = settings.viberNumber!!)
+                }
             }
             
             Spacer(modifier = Modifier.weight(1f))

@@ -6,6 +6,7 @@ data class AppSettings(
     val accountName: String = "",
     val accountNumber: String = "", // 13 digits
     val mobileNumber: String? = null, // +960XXXXXXX
+    val viberNumber: String? = null, // Viber number for slip sending (optional)
     val adminPassword: String = "", // Empty = no password protection
     val proMode: Boolean = false,
     val showManualQrInput: Boolean = false, // Show manual amount input on idle screen

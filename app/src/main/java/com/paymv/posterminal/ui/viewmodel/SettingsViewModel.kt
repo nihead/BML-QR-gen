@@ -77,6 +77,10 @@ class SettingsViewModel(
         _editableSettings.update { it.copy(mobileNumber = number) }
     }
     
+    fun updateViberNumber(number: String) {
+        _editableSettings.update { it.copy(viberNumber = number.ifBlank { null }) }
+    }
+    
     fun updateAdminPassword(password: String) {
         _editableSettings.update { it.copy(adminPassword = password) }
     }

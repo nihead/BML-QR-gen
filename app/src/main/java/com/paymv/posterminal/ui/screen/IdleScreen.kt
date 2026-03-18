@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +25,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.paymv.posterminal.ui.component.AdBanner
 import com.paymv.posterminal.ui.component.ConnectionStatus
+import com.paymv.posterminal.ui.component.ViberSlipMessage
 import com.paymv.posterminal.ui.theme.Gray
 import com.paymv.posterminal.ui.theme.DarkPrimary
 import com.paymv.posterminal.ui.viewmodel.IdleViewModel
@@ -34,7 +36,8 @@ import kotlinx.coroutines.launch
 fun IdleScreen(
     viewModel: IdleViewModel,
     onNavigateToQR: (String) -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToHelp: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val settings by viewModel.settings.collectAsState()
@@ -73,6 +76,9 @@ fun IdleScreen(
             TopAppBar(
                 title = { Text("PayMV POS Terminal") },
                 actions = {
+                    IconButton(onClick = onNavigateToHelp) {
+                        Icon(Icons.AutoMirrored.Filled.Help, contentDescription = "Help")
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -219,6 +225,12 @@ fun IdleScreen(
                 color = Gray,
                 textAlign = TextAlign.Center
             )
+            
+            // Viber slip message (if Viber number is set)
+            if (!settings.viberNumber.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                ViberSlipMessage(viberNumber = settings.viberNumber!!)
+            }
             
             Spacer(modifier = Modifier.weight(1f))
             

@@ -160,126 +160,7 @@ fun SettingsScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Store Logo
-            OutlinedButton(
-                onClick = { imagePickerLauncher.launch("image/*") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (editableSettings.storeLogo.isNullOrEmpty()) 
-                    "Upload Store Logo" else "Change Store Logo")
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Account Name
-            OutlinedTextField(
-                value = editableSettings.accountName,
-                onValueChange = { viewModel.updateAccountName(it) },
-                label = { Text("Account Name") },
-                placeholder = { Text("e.g., MOHD.NIHAD") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Account Number
-            OutlinedTextField(
-                value = editableSettings.accountNumber,
-                onValueChange = { viewModel.updateAccountNumber(it) },
-                label = { Text("Account Number (13 digits)") },
-                placeholder = { Text("1234567890123") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                supportingText = {
-                    Text("${editableSettings.accountNumber.length}/13")
-                }
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Mobile Number
-            OutlinedTextField(
-                value = editableSettings.mobileNumber ?: "",
-                onValueChange = { viewModel.updateMobileNumber(it) },
-                label = { Text("Mobile Number (Optional)") },
-                placeholder = { Text("+9607654321") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Password Protection Toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Password Protection", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = if (editableSettings.adminPassword.isEmpty()) "Disabled" else "Enabled",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = editableSettings.adminPassword.isNotEmpty(),
-                    onCheckedChange = { enabled ->
-                        if (!enabled) {
-                            viewModel.updateAdminPassword("")
-                        } else {
-                            viewModel.updateAdminPassword("000000")
-                        }
-                    }
-                )
-            }
-            
-            // Password field (only shown when protection is enabled)
-            if (editableSettings.adminPassword.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                var newPasswordVisible by remember { mutableStateOf(false) }
-                OutlinedTextField(
-                    value = editableSettings.adminPassword,
-                    onValueChange = { viewModel.updateAdminPassword(it) },
-                    label = { Text("Admin Password") },
-                    placeholder = { Text("Enter password") },
-                    visualTransformation = if (newPasswordVisible) 
-                        VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
-                            Icon(
-                                if (newPasswordVisible) Icons.Default.Visibility 
-                                else Icons.Default.VisibilityOff,
-                                contentDescription = "Toggle password visibility"
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    supportingText = {
-                        Text("Minimum 6 characters")
-                    }
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Manual QR Input
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Manual QR Input", style = MaterialTheme.typography.bodyLarge)
-                Switch(
-                    checked = editableSettings.showManualQrInput,
-                    onCheckedChange = { viewModel.updateShowManualQrInput(it) }
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Hide Ads Toggle
+            // Hide Ads Toggle - Premium Feature (at top for visibility)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -351,6 +232,140 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Store Logo
+            OutlinedButton(
+                onClick = { imagePickerLauncher.launch("image/*") },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (editableSettings.storeLogo.isNullOrEmpty()) 
+                    "Upload Store Logo" else "Change Store Logo")
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Account Name
+            OutlinedTextField(
+                value = editableSettings.accountName,
+                onValueChange = { viewModel.updateAccountName(it) },
+                label = { Text("Account Name") },
+                placeholder = { Text("e.g., MOHD.NIHAD") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Account Number
+            OutlinedTextField(
+                value = editableSettings.accountNumber,
+                onValueChange = { viewModel.updateAccountNumber(it) },
+                label = { Text("Account Number (13 digits)") },
+                placeholder = { Text("1234567890123") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                supportingText = {
+                    Text("${editableSettings.accountNumber.length}/13")
+                }
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Mobile Number
+            OutlinedTextField(
+                value = editableSettings.mobileNumber ?: "",
+                onValueChange = { viewModel.updateMobileNumber(it) },
+                label = { Text("Mobile Number (Optional)") },
+                placeholder = { Text("+9607654321") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Viber Number (Optional)
+            OutlinedTextField(
+                value = editableSettings.viberNumber ?: "",
+                onValueChange = { viewModel.updateViberNumber(it) },
+                label = { Text("Viber Number (Optional)") },
+                placeholder = { Text("+9607654321") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                modifier = Modifier.fillMaxWidth(),
+                supportingText = {
+                    Text("Customers will be asked to send slip to this number")
+                }
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Password Protection Toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Password Protection", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = if (editableSettings.adminPassword.isEmpty()) "Disabled" else "Enabled",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = editableSettings.adminPassword.isNotEmpty(),
+                    onCheckedChange = { enabled ->
+                        if (!enabled) {
+                            viewModel.updateAdminPassword("")
+                        } else {
+                            viewModel.updateAdminPassword("000000")
+                        }
+                    }
+                )
+            }
+            
+            // Password field (only shown when protection is enabled)
+            if (editableSettings.adminPassword.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                var newPasswordVisible by remember { mutableStateOf(false) }
+                OutlinedTextField(
+                    value = editableSettings.adminPassword,
+                    onValueChange = { viewModel.updateAdminPassword(it) },
+                    label = { Text("Admin Password") },
+                    placeholder = { Text("Enter password") },
+                    visualTransformation = if (newPasswordVisible) 
+                        VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
+                            Icon(
+                                if (newPasswordVisible) Icons.Default.Visibility 
+                                else Icons.Default.VisibilityOff,
+                                contentDescription = "Toggle password visibility"
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = {
+                        Text("Minimum 6 characters")
+                    }
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Manual QR Input
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Manual QR Input", style = MaterialTheme.typography.bodyLarge)
+                Switch(
+                    checked = editableSettings.showManualQrInput,
+                    onCheckedChange = { viewModel.updateShowManualQrInput(it) }
+                )
             }
             
             Spacer(modifier = Modifier.height(16.dp))
